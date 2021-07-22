@@ -10,11 +10,11 @@ using TeamCitySharp;
 
 namespace TeamCityBuildStatsScraper
 {
-    internal class TeamCityBuildArtifactScraper : IHostedService
+    internal class TeamCityBuildArtifactScraper : IHostedService, IDisposable
     {
         private readonly IHost _host;
         private readonly IConfiguration _configuration;
-        private const string BuildServerUrl = "build.octopushq.com";
+        private Timer _timer;
 
         public TeamCityBuildArtifactScraper(IHost host, IConfiguration configuration)
         {
@@ -22,11 +22,20 @@ namespace TeamCityBuildStatsScraper
             _configuration = configuration;
         }
         
-        public async Task StartAsync(CancellationToken cancellationToken)
+        public Task StartAsync(CancellationToken cancellationToken)
+        {
+            // Fire off the Scraper starting *right now* and do it again every five minutes
+            _timer = new Timer(ScrapeArtifactStats, null, TimeSpan.Zero, TimeSpan.FromMinutes(5));
+
+            return Task.CompletedTask;
+        }
+
+        private void ScrapeArtifactStats(object state)
         {
             var metricFactory = _host.Services.GetRequiredService<IMetricFactory>();
             var teamCityToken = _configuration.GetSection("TEAMCITY_TOKEN").Value;
-            var teamCityClient = new TeamCityClient(BuildServerUrl, true);
+            var teamCityUrl = _configuration.GetSection("BUILD_SERVER_URL").Value;
+            var teamCityClient = new TeamCityClient(teamCityUrl, true);
 
             teamCityClient.ConnectWithAccessToken(teamCityToken);
 
@@ -88,13 +97,19 @@ namespace TeamCityBuildStatsScraper
                 publishSizeGauge.WithLabels(item.buildTypeId).Set(item.meanArtifactPublishSize);
                 publishTimeGauge.WithLabels(item.buildTypeId).Set(item.meanArtifactPublishTime);
             }
-            
+
             Console.WriteLine("Done!");
         }
 
         public async Task StopAsync(CancellationToken cancellationToken)
         {
             Console.WriteLine("Stopped.");
+        }
+
+        public void Dispose()
+        {
+            _host?.Dispose();
+            _timer?.Dispose();
         }
     }
 }
