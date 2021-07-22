@@ -35,7 +35,8 @@ namespace TeamCityBuildStatsScraper
             var metricFactory = _host.Services.GetRequiredService<IMetricFactory>();
             var teamCityToken = _configuration.GetSection("TEAMCITY_TOKEN").Value;
             var teamCityUrl = _configuration.GetSection("BUILD_SERVER_URL").Value;
-            var teamCityClient = new TeamCityClient(teamCityUrl, true);
+            var teamCityUseSsl = _configuration.GetSection("DISABLE_SSL_FOR_TEAMCITY_SCRAPER").Exists() ? false : true;
+            var teamCityClient = new TeamCityClient(teamCityUrl, teamCityUseSsl);
 
             teamCityClient.ConnectWithAccessToken(teamCityToken);
 
