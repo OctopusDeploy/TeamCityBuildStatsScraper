@@ -25,7 +25,7 @@ namespace TeamCityBuildStatsScraper
                         new MetricServerOptions
                         {
                             CollectorRegistryInstance = sp.GetRequiredService<ICollectorRegistry>(),
-                            Host = "localhost",
+                            Host = "0.0.0.0",
                             Port = 9090,
                             UseDefaultCollectors = false
                         }));
