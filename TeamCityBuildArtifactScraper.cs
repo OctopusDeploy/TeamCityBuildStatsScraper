@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Prometheus.Client;
@@ -12,21 +13,22 @@ namespace TeamCityBuildStatsScraper
     internal class TeamCityBuildArtifactScraper : IHostedService
     {
         private readonly IHost _host;
+        private readonly IConfiguration _configuration;
         private const string BuildServerUrl = "build.octopushq.com";
 
-        public TeamCityBuildArtifactScraper(IHost host)
+        public TeamCityBuildArtifactScraper(IHost host, IConfiguration configuration)
         {
             _host = host;
+            _configuration = configuration;
         }
         
         public async Task StartAsync(CancellationToken cancellationToken)
         {
             var metricFactory = _host.Services.GetRequiredService<IMetricFactory>();
-
+            var teamCityToken = _configuration.GetSection("TEAMCITY_TOKEN").Value;
             var teamCityClient = new TeamCityClient(BuildServerUrl, true);
 
-            teamCityClient.ConnectWithAccessToken(
-                "THIS SHOULD BE A TEAMCITY TOKEN");
+            teamCityClient.ConnectWithAccessToken(teamCityToken);
 
             // We need to use UTC because the TeamCitySharp library has a problem where timezones with + are converted to -
             // However, our TeamCity instance is able to deal with filtering dates provided in UTC appropriately.

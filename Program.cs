@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Prometheus.Client.Collectors;
@@ -13,6 +14,10 @@ namespace TeamCityBuildStatsScraper
         public static async Task Main(string[] args)
         {
             var host = Host.CreateDefaultBuilder(args)
+                .ConfigureAppConfiguration((_, config) =>
+                {
+                    config.AddEnvironmentVariables();
+                })
                 .ConfigureServices((_, services) =>
                 {
                     services.AddMetricFactory();
