@@ -48,6 +48,7 @@ namespace TeamCityBuildStatsScraper
                 .GetFields(
                     "count,build(id,finishDate,startDate,buildTypeId,queuedDate,statistics(property,value,name))")
                 .ByBuildLocator(locator)
+                // Only give me the builds that actually contain these metrics, otherwise we skew the data with lots of zeroes
                 .Where(b => b.Statistics.Property.Exists(p => p.Name.Contains("artifactsPublishing")))
                 .Where(b => b.Statistics.Property.Exists(p => p.Name.Contains("ArtifactsSize")))
                 .Where(b => b.Statistics.Property.Exists(p => p.Name.Contains("dependenciesResolving")))
@@ -58,15 +59,13 @@ namespace TeamCityBuildStatsScraper
                 {
                     rb.BuildTypeId,
                     artifactPublishTime =
-                        long.Parse(rb.Statistics.Property.Single(p => p.Name.Contains("artifactsPublishing"))
-                            .Value),
+                        long.Parse(rb.Statistics.Property.Single(p => p.Name.Contains("artifactsPublishing")).Value),
                     artifactPublishSize =
                         long.Parse(rb.Statistics.Property.Single(p => p.Name == "ArtifactsSize").Value),
                     artifactPullTime =
-                        long.Parse(rb.Statistics.Property.Single(p => p.Name.Contains("dependenciesResolving"))
-                            .Value),
-                    artifactPullSize = long.Parse(rb.Statistics.Property
-                        .Single(p => p.Name.Contains("artifactResolving:totalDownloaded")).Value)
+                        long.Parse(rb.Statistics.Property.Single(p => p.Name.Contains("dependenciesResolving")).Value),
+                    artifactPullSize = 
+                        long.Parse(rb.Statistics.Property.Single(p => p.Name.Contains("artifactResolving:totalDownloaded")).Value)
                 })
                 .GroupBy(b => b.BuildTypeId)
                 .Select(b => new
