@@ -82,7 +82,7 @@ namespace TeamCityBuildStatsScraper
                 metricFactory.CreateGauge("build_artifact_push_size",
                     "Size of artifacts pushed by a build", "buildTypeId");
             var publishTimeGauge =
-                metricFactory.CreateGauge("build_artifact_pull_size",
+                metricFactory.CreateGauge("build_artifact_push_time",
                     "Time in ms for artifacts to be pushed by a build", "buildTypeId");
             var pullSizeGauge = metricFactory.CreateGauge("build_artifact_pull_size",
                 "Size of artifacts pulled into a build", "buildTypeId");
