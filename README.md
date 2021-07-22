@@ -13,6 +13,20 @@ Optionally:
 
 - `DISABLE_SSL_FOR_TEAMCITY_SCRAPER` - if present (with any value), this will use HTTP and not HTTPS to access your instance.
 
+## How to run
+
+### Console app
+
+- Install the .NET 5 SDK
+- Clone this repo
+- `dotnet publish -c Release` from the root directory
+- `cd` to `/bin/net5.0/Release/publish` and run `dotnet TeamCityBuildStatsScraper.dll`
+
+### Docker container
+
+- `docker build` the Dockerfile
+- `docker run -p 9090:9090` and provide your environment variables via `-e`
+
 ##Metrics collected
 
 ### Build Artifact Movements
