@@ -9,10 +9,6 @@ Two environment variables need to be set:
 - `BUILD_SERVER_URL` - The URL (or IP address) of your TeamCity instance, without `http(s)://` or trailing `/` - e.g. `buildserver.example.com` and not `https://buildserver.example.com/`
 - `TEAMCITY_TOKEN` - An [authentication token](https://www.jetbrains.com/help/teamcity/managing-your-user-account.html#Managing+Access+Tokens) for your TeamCity instance, with enough access to read build information.
 
-Optionally:
-
-- `DISABLE_SSL_FOR_TEAMCITY_SCRAPER` - if present (with any value), this will use HTTP and not HTTPS to access your instance.
-
 ## How to run
 
 ### Console app

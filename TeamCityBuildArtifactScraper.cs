@@ -33,17 +33,18 @@ namespace TeamCityBuildStatsScraper
         private void ScrapeArtifactStats(object state)
         {
             var metricFactory = _host.Services.GetRequiredService<IMetricFactory>();
-            var teamCityToken = _configuration.GetSection("TEAMCITY_TOKEN").Value;
-            var teamCityUrl = _configuration.GetSection("BUILD_SERVER_URL").Value;
-            var teamCityUseSsl = _configuration.GetSection("DISABLE_SSL_FOR_TEAMCITY_SCRAPER").Exists() ? false : true;
-            var teamCityClient = new TeamCityClient(teamCityUrl, teamCityUseSsl);
+            var teamCityToken = _configuration.GetValue<string>("TEAMCITY_TOKEN");
+            var teamCityUrl = _configuration.GetValue<string>("BUILD_SERVER_URL");
+            var teamCityClient = new TeamCityClient(teamCityUrl, true);
 
             teamCityClient.ConnectWithAccessToken(teamCityToken);
 
             // We need to use UTC because the TeamCitySharp library has a problem where timezones with + are converted to -
             // However, our TeamCity instance is able to deal with filtering dates provided in UTC appropriately.
-            var locator = TeamCitySharp.Locators.BuildLocator.WithDimensions(running: false,
-                sinceDate: DateTime.UtcNow.AddMinutes(-180), maxResults: 1000);
+            var locator = TeamCitySharp.Locators.BuildLocator.WithDimensions(
+                running: false,
+                sinceDate: DateTime.UtcNow.AddMinutes(-180), 
+                maxResults: 1000);
 
             var recentBuilds = teamCityClient.Builds
                 .GetFields(
@@ -59,14 +60,10 @@ namespace TeamCityBuildStatsScraper
             var recentBuildStats = recentBuilds.Select(rb => new
                 {
                     rb.BuildTypeId,
-                    artifactPublishTime =
-                        long.Parse(rb.Statistics.Property.Single(p => p.Name.Contains("artifactsPublishing")).Value),
-                    artifactPublishSize =
-                        long.Parse(rb.Statistics.Property.Single(p => p.Name == "ArtifactsSize").Value),
-                    artifactPullTime =
-                        long.Parse(rb.Statistics.Property.Single(p => p.Name.Contains("dependenciesResolving")).Value),
-                    artifactPullSize = 
-                        long.Parse(rb.Statistics.Property.Single(p => p.Name.Contains("artifactResolving:totalDownloaded")).Value)
+                    artifactPublishTime = long.Parse(rb.Statistics.Property.Single(p => p.Name.Contains("artifactsPublishing")).Value),
+                    artifactPublishSize = long.Parse(rb.Statistics.Property.Single(p => p.Name == "ArtifactsSize").Value),
+                    artifactPullTime = long.Parse(rb.Statistics.Property.Single(p => p.Name.Contains("dependenciesResolving")).Value),
+                    artifactPullSize = long.Parse(rb.Statistics.Property.Single(p => p.Name.Contains("artifactResolving:totalDownloaded")).Value)
                 })
                 .GroupBy(b => b.BuildTypeId)
                 .Select(b => new
@@ -79,16 +76,10 @@ namespace TeamCityBuildStatsScraper
                 })
                 .ToArray();
 
-            var publishSizeGauge =
-                metricFactory.CreateGauge("build_artifact_push_size",
-                    "Size of artifacts pushed by a build", "buildTypeId");
-            var publishTimeGauge =
-                metricFactory.CreateGauge("build_artifact_push_time",
-                    "Time in ms for artifacts to be pushed by a build", "buildTypeId");
-            var pullSizeGauge = metricFactory.CreateGauge("build_artifact_pull_size",
-                "Size of artifacts pulled into a build", "buildTypeId");
-            var pullTimeGauge = metricFactory.CreateGauge("build_artifact_pull_time",
-                "Time in ms for artifacts to be pulled into a build", "buildTypeId");
+            var publishSizeGauge = metricFactory.CreateGauge("build_artifact_push_size", "Size of artifacts pushed by a build", "buildTypeId");
+            var publishTimeGauge = metricFactory.CreateGauge("build_artifact_push_time", "Time in ms for artifacts to be pushed by a build", "buildTypeId");
+            var pullSizeGauge = metricFactory.CreateGauge("build_artifact_pull_size", "Size of artifacts pulled into a build", "buildTypeId");
+            var pullTimeGauge = metricFactory.CreateGauge("build_artifact_pull_time", "Time in ms for artifacts to be pulled into a build", "buildTypeId");
 
             foreach (var item in recentBuildStats)
             {
@@ -98,6 +89,7 @@ namespace TeamCityBuildStatsScraper
                 publishTimeGauge.WithLabels(item.buildTypeId).Set(item.meanArtifactPublishTime);
             }
 
+            //TODO: add more detail here for what just happened
             Console.WriteLine("Done!");
         }
 
