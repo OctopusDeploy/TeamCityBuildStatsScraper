@@ -47,8 +47,7 @@ namespace TeamCityBuildStatsScraper
                 maxResults: 1000);
 
             var recentBuilds = teamCityClient.Builds
-                .GetFields(
-                    "count,build(id,finishDate,startDate,buildTypeId,queuedDate,statistics(property,value,name))")
+                .GetFields("count,build(id,finishDate,startDate,buildTypeId,queuedDate,statistics(property,value,name))")
                 .ByBuildLocator(locator)
                 // Only give me the builds that actually contain these metrics, otherwise we skew the data with lots of zeroes
                 .Where(b => b.Statistics.Property.Exists(p => p.Name.Contains("artifactsPublishing")))
