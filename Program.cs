@@ -43,7 +43,7 @@ namespace TeamCityBuildStatsScraper
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Host Terminated Unexpectedly");
+                Console.WriteLine($"Unhandled exception - {ex.Message}");
             }
             finally
             {
