@@ -1,5 +1,8 @@
 using System;
+using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
@@ -46,6 +49,9 @@ namespace TeamCityBuildStatsScraper
                 sinceDate: DateTime.UtcNow.AddMinutes(-180), 
                 maxResults: 1000);
 
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+            
             var recentBuilds = teamCityClient.Builds
                 .GetFields("count,build(id,finishDate,startDate,buildTypeId,queuedDate,statistics(property,value,name))")
                 .ByBuildLocator(locator)
@@ -55,7 +61,9 @@ namespace TeamCityBuildStatsScraper
                 .Where(b => b.Statistics.Property.Exists(p => p.Name.Contains("dependenciesResolving")))
                 .Where(b => b.Statistics.Property.Exists(p => p.Name.Contains("artifactResolving:totalDownloaded")))
                 .ToArray();
-
+            
+            stopwatch.Stop();
+            
             var recentBuildStats = recentBuilds.Select(rb => new
                 {
                     rb.BuildTypeId,
@@ -80,21 +88,30 @@ namespace TeamCityBuildStatsScraper
             var pullSizeGauge = metricFactory.CreateGauge("build_artifact_pull_size", "Size of artifacts pulled into a build", "buildTypeId");
             var pullTimeGauge = metricFactory.CreateGauge("build_artifact_pull_time", "Time in ms for artifacts to be pulled into a build", "buildTypeId");
 
+            var consoleString = new StringBuilder();
+
+            consoleString.AppendLine($"Scrape complete at {DateTime.UtcNow.ToString(CultureInfo.InvariantCulture)}");
+            consoleString.AppendLine($"Completed scrape of TeamCity in {stopwatch.ElapsedMilliseconds} ms. Gauges generated were:");
+            consoleString.AppendLine("----------------------------------------------------------");
+            consoleString.AppendLine("Build Type | Push Size | Push Time | Pull Size | Pull Time");
+            
             foreach (var item in recentBuildStats)
             {
                 pullSizeGauge.WithLabels(item.buildTypeId).Set(item.meanArtifactPullSize);
                 pullTimeGauge.WithLabels(item.buildTypeId).Set(item.meanArtifactPullTime);
                 publishSizeGauge.WithLabels(item.buildTypeId).Set(item.meanArtifactPublishSize);
                 publishTimeGauge.WithLabels(item.buildTypeId).Set(item.meanArtifactPublishTime);
+                consoleString.AppendLine($"{item.buildTypeId} | {item.meanArtifactPublishSize} | {item.meanArtifactPublishTime} | {item.meanArtifactPullSize} | {item.meanArtifactPullTime}");
             }
-
-            //TODO: add more detail here for what just happened
-            Console.WriteLine("Done!");
+            
+            Console.WriteLine(consoleString.ToString());
         }
 
-        public async Task StopAsync(CancellationToken cancellationToken)
+        public Task StopAsync(CancellationToken cancellationToken)
         {
-            Console.WriteLine("Stopped.");
+            Console.WriteLine("Shutting down...");
+
+            return Task.CompletedTask;
         }
 
         public void Dispose()
