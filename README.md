@@ -23,7 +23,7 @@ Two environment variables need to be set:
 - `docker build` the Dockerfile
 - `docker run -p 9090:9090` and provide your environment variables via `-e`
 
-##Metrics collected
+## Metrics collected
 
 ### Build Artifact Movements
 
