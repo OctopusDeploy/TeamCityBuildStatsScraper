@@ -84,12 +84,15 @@ namespace TeamCityBuildStatsScraper
         
         public Task StopAsync(CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            Console.WriteLine("Shutting down...");
+
+            return Task.CompletedTask;
         }
 
         public void Dispose()
         {
-            throw new NotImplementedException();
+            _host?.Dispose();
+            _timer?.Dispose();
         }
     }
 }
