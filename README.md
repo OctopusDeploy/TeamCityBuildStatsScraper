@@ -34,4 +34,8 @@ In a rolling three-hour window, the app collects the below [gauges](https://prom
 - `build_artifact_push_time` - mean time (in milliseconds) spent pushing build artifacts from the agent
 - `build_artifact_pull_time` - mean time (in milliseconds) spent pulling build artifacts into the agent
 
+Every minute, the app collects this:
+
+- `queued_builds_with_reason` - total number of builds queued per wait reason
+
 Each gauge has a label called `buildTypeId` which matches the Build Configuration ID in TeamCity (not the numeric internal ID, but the human-readable one).

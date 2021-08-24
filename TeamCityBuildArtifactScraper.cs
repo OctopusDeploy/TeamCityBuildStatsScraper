@@ -6,7 +6,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Prometheus.Client;
 using TeamCitySharp;
@@ -15,13 +14,13 @@ namespace TeamCityBuildStatsScraper
 {
     internal class TeamCityBuildArtifactScraper : IHostedService, IDisposable
     {
-        private readonly IHost _host;
+        private readonly IMetricFactory _metricFactory;
         private readonly IConfiguration _configuration;
         private Timer _timer;
 
-        public TeamCityBuildArtifactScraper(IHost host, IConfiguration configuration)
+        public TeamCityBuildArtifactScraper(IMetricFactory metricFactory, IConfiguration configuration)
         {
-            _host = host;
+            _metricFactory = metricFactory;
             _configuration = configuration;
         }
         
@@ -35,7 +34,6 @@ namespace TeamCityBuildStatsScraper
 
         private void ScrapeArtifactStats(object state)
         {
-            var metricFactory = _host.Services.GetRequiredService<IMetricFactory>();
             var teamCityToken = _configuration.GetValue<string>("TEAMCITY_TOKEN");
             var teamCityUrl = _configuration.GetValue<string>("BUILD_SERVER_URL");
             var teamCityClient = new TeamCityClient(teamCityUrl, true);
@@ -83,10 +81,10 @@ namespace TeamCityBuildStatsScraper
                 })
                 .ToArray();
 
-            var publishSizeGauge = metricFactory.CreateGauge("build_artifact_push_size", "Size of artifacts pushed by a build", "buildTypeId");
-            var publishTimeGauge = metricFactory.CreateGauge("build_artifact_push_time", "Time in ms for artifacts to be pushed by a build", "buildTypeId");
-            var pullSizeGauge = metricFactory.CreateGauge("build_artifact_pull_size", "Size of artifacts pulled into a build", "buildTypeId");
-            var pullTimeGauge = metricFactory.CreateGauge("build_artifact_pull_time", "Time in ms for artifacts to be pulled into a build", "buildTypeId");
+            var publishSizeGauge = _metricFactory.CreateGauge("build_artifact_push_size", "Size of artifacts pushed by a build", "buildTypeId");
+            var publishTimeGauge = _metricFactory.CreateGauge("build_artifact_push_time", "Time in ms for artifacts to be pushed by a build", "buildTypeId");
+            var pullSizeGauge = _metricFactory.CreateGauge("build_artifact_pull_size", "Size of artifacts pulled into a build", "buildTypeId");
+            var pullTimeGauge = _metricFactory.CreateGauge("build_artifact_pull_time", "Time in ms for artifacts to be pulled into a build", "buildTypeId");
 
             var consoleString = new StringBuilder();
 
@@ -116,7 +114,6 @@ namespace TeamCityBuildStatsScraper
 
         public void Dispose()
         {
-            _host?.Dispose();
             _timer?.Dispose();
         }
     }
