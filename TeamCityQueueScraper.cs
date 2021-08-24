@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
@@ -17,6 +18,7 @@ namespace TeamCityBuildStatsScraper
         private readonly IMetricFactory _metricFactory;
         private readonly IConfiguration _configuration;
         private Timer _timer;
+        private readonly HashSet<string> _waitReasonList = new();
 
         public TeamCityQueueScraper(IMetricFactory metricFactory, IConfiguration configuration)
         {
@@ -61,6 +63,13 @@ namespace TeamCityBuildStatsScraper
                 })
                 .ToArray();
 
+            var currentWaitReasons = queueStats
+                .Select(qs => qs.waitReason)
+                .ToHashSet();
+
+            // update wait reason list with any new reasons
+            _waitReasonList.UnionWith(currentWaitReasons);
+            
             var waitReasonsGauge = _metricFactory.CreateGauge("queued_builds_with_reason", "Count of builds in the queue for each queue reason", "waitReason");
             
             var consoleString = new StringBuilder();
@@ -76,6 +85,15 @@ namespace TeamCityBuildStatsScraper
                 consoleString.AppendLine($"{item.waitReason} | {item.queuedBuildCount}");
             }
 
+            var absentWaitReasons = _waitReasonList.Except(currentWaitReasons);
+
+            foreach (var item in absentWaitReasons)
+            {
+                // if not present, reset the gauge to zero
+                waitReasonsGauge.WithLabels(item).Reset();
+                consoleString.AppendLine($"{item} | 0");
+            }
+            
             Console.WriteLine(consoleString.ToString());
         }
         
