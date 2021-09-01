@@ -36,6 +36,7 @@ In a rolling three-hour window, the app collects the below [gauges](https://prom
 
 Every minute, the app collects this:
 
+- `probably_hanging_builds` - number of builds that are probably hanging, per build type
 - `queued_builds_with_reason` - total number of builds queued per wait reason
 
 Each gauge has a label called `buildTypeId` which matches the Build Configuration ID in TeamCity (not the numeric internal ID, but the human-readable one).
