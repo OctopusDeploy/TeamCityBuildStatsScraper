@@ -19,6 +19,7 @@ namespace TeamCityBuildStatsScraper
         private readonly IMetricFactory _metricFactory;
         private readonly IConfiguration _configuration;
         private Timer _timer;
+        private readonly HashSet<string> seenBuildTypes = new();
 
         public TeamCityBuildScraper(IMetricFactory metricFactory, IConfiguration configuration)
         {
@@ -52,7 +53,7 @@ namespace TeamCityBuildStatsScraper
 
             stopwatch.Stop();
 
-            var waitReasonsGauge = _metricFactory.CreateGauge("probably_hanging_builds", "Count of running builds that appear to be hung", "buildTypeId");
+            var gauge = _metricFactory.CreateGauge("probably_hanging_builds", "Count of running builds that appear to be hung", "buildTypeId");
 
             var consoleString = new StringBuilder();
 
@@ -63,8 +64,19 @@ namespace TeamCityBuildStatsScraper
 
             foreach (var build in hungBuilds.GroupBy(x => x.BuildTypeId))
             {
-                waitReasonsGauge.WithLabels(build.Key).Set(build.Count());
+                gauge.WithLabels(build.Key).Set(build.Count());
                 consoleString.AppendLine($"{build.Key} | {(build.Count())}");
+            }
+
+            var currentBuildTypes = hungBuilds.Select(x => x.BuildTypeId).Distinct();
+            seenBuildTypes.UnionWith(currentBuildTypes);
+            var absentBuildTypes = seenBuildTypes.Except(currentBuildTypes);
+
+            foreach (var item in absentBuildTypes)
+            {
+                // if not present, reset the gauge to zero
+                gauge.WithLabels(item).Reset();
+                consoleString.AppendLine($"{item} | 0");
             }
 
             Console.WriteLine(consoleString.ToString());
