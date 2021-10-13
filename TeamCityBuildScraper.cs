@@ -19,7 +19,7 @@ namespace TeamCityBuildStatsScraper
         private readonly IMetricFactory _metricFactory;
         private readonly IConfiguration _configuration;
         private Timer _timer;
-        private readonly HashSet<string> seenBuildTypes = new();
+        private readonly HashSet<string> _seenBuildTypes = new();
 
         public TeamCityBuildScraper(IMetricFactory metricFactory, IConfiguration configuration)
         {
@@ -69,8 +69,8 @@ namespace TeamCityBuildStatsScraper
             }
 
             var currentBuildTypes = hungBuilds.Select(x => x.BuildTypeId).Distinct();
-            seenBuildTypes.UnionWith(currentBuildTypes);
-            var absentBuildTypes = seenBuildTypes.Except(currentBuildTypes);
+            _seenBuildTypes.UnionWith(currentBuildTypes);
+            var absentBuildTypes = _seenBuildTypes.Except(currentBuildTypes);
 
             foreach (var item in absentBuildTypes)
             {
