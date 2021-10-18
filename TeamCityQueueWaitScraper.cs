@@ -102,12 +102,12 @@ namespace TeamCityBuildStatsScraper
             consoleString.AppendLine($"Scrape complete at {DateTime.UtcNow.ToString(CultureInfo.InvariantCulture)}");
             consoleString.AppendLine($"Completed scrape of queued build waiting time in {stopwatch.ElapsedMilliseconds} ms. Builds captured were:");
             consoleString.AppendLine("-------------------------------------------------------------------------------------------");
-            consoleString.AppendLine("Build Type | Id | Wait Duration");
+            consoleString.AppendLine("Build Type | Id | Wait Duration | Now | Queued Date-Time");
 
             foreach (var queuedBuild in queueStats)
             {
                 metrics.WithLabels(queuedBuild.buildType).Observe(queuedBuild.timeInQueue.TotalMilliseconds);
-                consoleString.AppendLine($"{queuedBuild.buildType} | {queuedBuild.id} | {queuedBuild.timeInQueue.TotalMilliseconds}");
+                consoleString.AppendLine($"{queuedBuild.buildType} | {queuedBuild.id} | {queuedBuild.timeInQueue.TotalMilliseconds} | {now} | {queuedBuild.queueTime}");
             }
             
             var currentBuildTypes = queueStats.Select(x => x.buildType).Distinct();
