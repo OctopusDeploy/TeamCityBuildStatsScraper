@@ -64,8 +64,8 @@ namespace TeamCityBuildStatsScraper
                     buildType = qb.BuildTypeId,
                     id = qb.Id,
                     now = now,
-                    queueTime = (qb.QueuedDate.AddHours(-11)),
-                    timeInQueue = now - (qb.QueuedDate.AddHours(-11))
+                    queueTime = (qb.QueuedDate), // local development you may need to offset these values; TC seems to do some magic converting TZs
+                    timeInQueue = now - (qb.QueuedDate)
                 })
                 .ToArray();
 
