@@ -59,8 +59,6 @@ namespace TeamCityBuildStatsScraper
                     qb.SnapshotDependencies.Build != null && qb.SnapshotDependencies.Build.TrueForAll(b => b.State == "finished") || qb.SnapshotDependencies == null)
                 .ToArray();
 
-            stopwatch.Stop();
-            
             var queueStats = queuedBuilds
                 .Select(qb =>
                 {
