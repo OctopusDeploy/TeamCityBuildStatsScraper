@@ -45,27 +45,10 @@ namespace TeamCityBuildStatsScraper
 
             var stopwatch = new Stopwatch();
             stopwatch.Start();
-
-            var now = DateTime.UtcNow;
             
             var queuedBuilds = GetFilteredQueuedBuilds(teamCityClient);
 
-            var queueStats = queuedBuilds
-                .Select(qb =>
-                {
-                    // For builds where they have been waiting on another build, we only want to 'start the clock' from the final dependency finish time.
-                    var latestQueueDate = qb.SnapshotDependencies.Build.Any() ? qb.SnapshotDependencies.Build.Max(b => b.FinishDate) : qb.QueuedDate;
-
-                    return new
-                    {
-                        buildType = qb.BuildTypeId,
-                        id = qb.Id,
-                        queueTime = (qb.QueuedDate), // local development you may need to offset these values; TC seems to do some magic converting TZs
-                        lastDependencyFinishTime = latestQueueDate,
-                        timeInQueue = now - latestQueueDate
-                    };
-                })
-                .ToArray();
+            var queueStats = GenerateQueueWaitStats(queuedBuilds);
 
             stopwatch.Stop();
 
@@ -119,6 +102,28 @@ namespace TeamCityBuildStatsScraper
             }
             
             Console.WriteLine(consoleString.ToString());
+        }
+
+        private static object GenerateQueueWaitStats(Build[] queuedBuilds)
+        {
+            var now = DateTime.UtcNow;
+            
+            return queuedBuilds
+                .Select(qb =>
+                {
+                    // For builds where they have been waiting on another build, we only want to 'start the clock' from the final dependency finish time.
+                    var latestQueueDate = qb.SnapshotDependencies.Build.Any() ? qb.SnapshotDependencies.Build.Max(b => b.FinishDate) : qb.QueuedDate;
+
+                    return new
+                    {
+                        buildType = qb.BuildTypeId,
+                        id = qb.Id,
+                        queueTime = (qb.QueuedDate), // local development you may need to offset these values; TC seems to do some magic converting TZs
+                        lastDependencyFinishTime = latestQueueDate,
+                        timeInQueue = now - latestQueueDate
+                    };
+                })
+                .ToArray();
         }
 
         private static Build[] GetFilteredQueuedBuilds(TeamCityClient teamCityClient)
