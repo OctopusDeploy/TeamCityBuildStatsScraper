@@ -13,14 +13,14 @@ using TeamCitySharp;
 
 namespace TeamCityBuildStatsScraper
 {
-    internal class TeamCityQueueScraper: IHostedService, IDisposable
+    internal class TeamCityQueueLengthScraper: IHostedService, IDisposable
     {
         private readonly IMetricFactory _metricFactory;
         private readonly IConfiguration _configuration;
         private Timer _timer;
         private readonly HashSet<string> _waitReasonList = new();
 
-        public TeamCityQueueScraper(IMetricFactory metricFactory, IConfiguration configuration)
+        public TeamCityQueueLengthScraper(IMetricFactory metricFactory, IConfiguration configuration)
         {
             _metricFactory = metricFactory;
             _configuration = configuration;
