@@ -86,8 +86,8 @@ namespace TeamCityBuildStatsScraper
              * ever-increasing amounts, which means that the _sum will increase exponentially as the build continues to wait.
              *
              * The P-values should be relatively meaningful, though. Given the 'spikiness' of our build queue waits, we should be able to alert on a
-             * P-value from this and not get too many false positives. A brand new build that waits for 5000ms won't outweigh another build of the
-             * same type that's been waiting for 5 minutes, for example. In reverse, if 50 builds of the same type all wait for 5000ms only, then
+             * P-value from this and not get too many false positives. A brand new build that waits for 5 seconds won't outweigh another build of the
+             * same type that's been waiting for 5 minutes, for example. In reverse, if 50 builds of the same type all wait for 5 seconds only, then
              * repeated observation of a build that is now waiting a long time will shift the P90 and P99 values relatively quickly. If we find that
              * this dynamic is happening too fast, the first thing to try should be to *reduce* the scrape interval above in StartAsync() so that
              * frequent scraping of long-waiting builds doesn't skew the data higher as quickly.
