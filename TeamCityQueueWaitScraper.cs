@@ -28,8 +28,8 @@ namespace TeamCityBuildStatsScraper
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
-            // Fire off the Scraper starting *right now* and do it again every ten seconds
-            _timer = new Timer(ScrapeBuildStats, null, TimeSpan.Zero, TimeSpan.FromSeconds(10));
+            // Fire off the Scraper starting *right now* and do it again every fifteen seconds
+            _timer = new Timer(ScrapeBuildStats, null, TimeSpan.Zero, TimeSpan.FromSeconds(15));
 
             return Task.CompletedTask;
         }
