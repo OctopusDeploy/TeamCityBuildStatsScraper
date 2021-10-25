@@ -126,8 +126,6 @@ namespace TeamCityBuildStatsScraper
                 // Summaries require historic data; Prometheus.net retains ~10 mins of data so we don't need to clear these out like we would in a gauge.
                 consoleString.AppendLine($"{item} | not observed | <n/a>");
             }
-
-            // consoleString.AppendLine($"Current summary buffer size: {metrics}");
             
             Console.WriteLine(consoleString.ToString());
         }
