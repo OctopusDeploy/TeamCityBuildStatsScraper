@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Prometheus.Client;
 using TeamCitySharp;
+using TeamCitySharp.DomainEntities;
 
 namespace TeamCityBuildStatsScraper
 {
@@ -47,17 +48,7 @@ namespace TeamCityBuildStatsScraper
 
             var now = DateTime.UtcNow;
             
-            var queuedBuilds = teamCityClient.BuildQueue
-                .GetFields("count,build(id,waitReason,buildTypeId,queuedDate,snapshot-dependencies(count,build(state,status,finishDate)),artifact-dependencies(count,build(state,status,finishDate)))")
-                .All()
-                // exclude builds with no wait reason - these are the ones that are 'starting shortly'
-                .Where(qb => qb.WaitReason != null)
-                // exclude builds just waiting on other builds
-                .Where(qb => !qb.WaitReason.Contains("Build dependencies have not been built yet"))
-                // exclude builds where any artifact dependency is still building, unless there are none
-                .Where(qb => 
-                    qb.SnapshotDependencies.Build != null && qb.SnapshotDependencies.Build.TrueForAll(b => b.State == "finished") || qb.SnapshotDependencies == null)
-                .ToArray();
+            var queuedBuilds = GetFilteredQueuedBuilds(teamCityClient);
 
             var queueStats = queuedBuilds
                 .Select(qb =>
@@ -128,6 +119,21 @@ namespace TeamCityBuildStatsScraper
             }
             
             Console.WriteLine(consoleString.ToString());
+        }
+
+        private static Build[] GetFilteredQueuedBuilds(TeamCityClient teamCityClient)
+        {
+            return teamCityClient.BuildQueue
+                .GetFields("count,build(id,waitReason,buildTypeId,queuedDate,snapshot-dependencies(count,build(state,status,finishDate)),artifact-dependencies(count,build(state,status,finishDate)))")
+                .All()
+                // exclude builds with no wait reason - these are the ones that are 'starting shortly'
+                .Where(qb => qb.WaitReason != null)
+                // exclude builds just waiting on other builds
+                .Where(qb => !qb.WaitReason.Contains("Build dependencies have not been built yet"))
+                // exclude builds where any artifact dependency is still building, unless there are none
+                .Where(qb => 
+                    qb.SnapshotDependencies.Build != null && qb.SnapshotDependencies.Build.TrueForAll(b => b.State == "finished") || qb.SnapshotDependencies == null)
+                .ToArray();
         }
 
         public Task StopAsync(CancellationToken cancellationToken)
