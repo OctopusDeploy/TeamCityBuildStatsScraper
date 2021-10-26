@@ -45,13 +45,13 @@ namespace TeamCityBuildStatsScraper
 
             var scrapeDuration = new Stopwatch();
             scrapeDuration.Start();
-            
+
             var queuedBuilds = GetFilteredQueuedBuilds(teamCityClient);
 
             var queueStats = GenerateQueueWaitStats(queuedBuilds);
 
             scrapeDuration.Stop();
-            
+
             CreateOrUpdateMetrics(queueStats);
             LogActivity(queueStats, scrapeDuration.Elapsed);
         }
@@ -80,10 +80,10 @@ namespace TeamCityBuildStatsScraper
              * queued_build_wait_times_by_type_sum{buildType="OctopusDeploy_OctopusServer_Build_BuildPortal"} 2874.183
              * queued_build_wait_times_by_type_count{buildType="OctopusDeploy_OctopusServer_Build_BuildPortal"} 1
              */
-            
+
             var metrics = _metricFactory
                 .CreateSummary("queued_builds_wait_times_by_type", "How long each build type has been waiting to start", "buildTypeId");
-            
+
             foreach (var queuedBuild in queueStats)
             {
                 metrics.WithLabels(queuedBuild.BuildType).Observe(queuedBuild.TimeInQueue.TotalMilliseconds);
@@ -104,7 +104,7 @@ namespace TeamCityBuildStatsScraper
                 consoleString.AppendLine(
                     $"{queuedBuild.BuildType} | {queuedBuild.Id} | {queuedBuild.TimeInQueue.TotalMilliseconds} | {DateTime.UtcNow} | {queuedBuild.QueuedTime} | {queuedBuild.LastDependencyFinishTime}");
             }
-            
+
             var currentBuildTypes = queueStats.Select(x => x.BuildType).Distinct().ToArray();
             _seenBuildTypes.UnionWith(currentBuildTypes);
             var absentBuildTypes = _seenBuildTypes.Except(currentBuildTypes);
@@ -121,7 +121,7 @@ namespace TeamCityBuildStatsScraper
         private static QueuedBuildStats[] GenerateQueueWaitStats(Build[] queuedBuilds)
         {
             var now = DateTime.UtcNow;
-            
+
             return queuedBuilds
                 .Select(qb =>
                 {
@@ -143,7 +143,8 @@ namespace TeamCityBuildStatsScraper
         private static Build[] GetFilteredQueuedBuilds(TeamCityClient teamCityClient)
         {
             return teamCityClient.BuildQueue
-                .GetFields("count,build(id,waitReason,buildTypeId,queuedDate,snapshot-dependencies(count,build(state,status,finishDate)),artifact-dependencies(count,build(state,status,finishDate)))")
+                .GetFields(
+                    "count,build(id,waitReason,buildTypeId,queuedDate,snapshot-dependencies(count,build(state,status,finishDate)),artifact-dependencies(count,build(state,status,finishDate)))")
                 .All()
                 // exclude builds with no wait reason - these are the ones that are 'starting shortly'
                 .Where(qb => qb.WaitReason != null)
@@ -158,8 +159,10 @@ namespace TeamCityBuildStatsScraper
         {
             if (qb.SnapshotDependencies == null) return true;
 
-            if (qb.SnapshotDependencies.Build == null) throw new ApplicationException($"Looks like we received a build with no list of dependent builds at all, despite it apparently having snapshot dependencies. BuildTypeId: {qb.BuildTypeId}, BuildId: {qb.Id}");
-            
+            if (qb.SnapshotDependencies.Build == null)
+                throw new ApplicationException(
+                    $"Looks like we received a build with no list of dependent builds at all, despite it apparently having snapshot dependencies. BuildTypeId: {qb.BuildTypeId}, BuildId: {qb.Id}");
+
             return qb.SnapshotDependencies.Build.TrueForAll(b => b.State == "finished");
         }
 
