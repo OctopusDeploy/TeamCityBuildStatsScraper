@@ -87,11 +87,11 @@ namespace TeamCityBuildStatsScraper
 
             foreach (var queuedBuild in queueStats)
             {
-                metrics.WithLabels(queuedBuild.buildType).Observe(queuedBuild.timeInQueue.TotalMilliseconds);
-                consoleString.AppendLine($"{queuedBuild.buildType} | {queuedBuild.id} | {queuedBuild.timeInQueue.TotalMilliseconds} | {now} | {queuedBuild.queueTime} | {queuedBuild.lastDependencyFinishTime}");
+                metrics.WithLabels(queuedBuild.BuildType).Observe(queuedBuild.TimeInQueue.TotalMilliseconds);
+                consoleString.AppendLine($"{queuedBuild.BuildType} | {queuedBuild.Id} | {queuedBuild.TimeInQueue.TotalMilliseconds} | {DateTime.UtcNow} | {queuedBuild.QueuedTime} | {queuedBuild.LastDependencyFinishTime}");
             }
             
-            var currentBuildTypes = queueStats.Select(x => x.buildType).Distinct();
+            var currentBuildTypes = queueStats.Select(x => x.BuildType).Distinct();
             _seenBuildTypes.UnionWith(currentBuildTypes);
             var absentBuildTypes = _seenBuildTypes.Except(currentBuildTypes);
 
@@ -104,7 +104,7 @@ namespace TeamCityBuildStatsScraper
             Console.WriteLine(consoleString.ToString());
         }
 
-        private static object GenerateQueueWaitStats(Build[] queuedBuilds)
+        private static QueuedBuildStats[] GenerateQueueWaitStats(Build[] queuedBuilds)
         {
             var now = DateTime.UtcNow;
             
@@ -114,13 +114,13 @@ namespace TeamCityBuildStatsScraper
                     // For builds where they have been waiting on another build, we only want to 'start the clock' from the final dependency finish time.
                     var latestQueueDate = qb.SnapshotDependencies.Build.Any() ? qb.SnapshotDependencies.Build.Max(b => b.FinishDate) : qb.QueuedDate;
 
-                    return new
+                    return new QueuedBuildStats
                     {
-                        buildType = qb.BuildTypeId,
-                        id = qb.Id,
-                        queueTime = (qb.QueuedDate), // local development you may need to offset these values; TC seems to do some magic converting TZs
-                        lastDependencyFinishTime = latestQueueDate,
-                        timeInQueue = now - latestQueueDate
+                        BuildType = qb.BuildTypeId,
+                        Id = qb.Id,
+                        QueuedTime = (qb.QueuedDate), // local development you may need to offset these values; TC seems to do some magic converting TZs
+                        LastDependencyFinishTime = latestQueueDate,
+                        TimeInQueue = now - latestQueueDate
                     };
                 })
                 .ToArray();
@@ -152,5 +152,14 @@ namespace TeamCityBuildStatsScraper
         {
             _timer?.Dispose();
         }
+    }
+
+    internal class QueuedBuildStats
+    {
+        public string BuildType { get; set; }
+        public string Id { get; set; }
+        public DateTime QueuedTime { get; set; }
+        public DateTime LastDependencyFinishTime { get; set; }
+        public TimeSpan TimeInQueue { get; set; }
     }
 }
