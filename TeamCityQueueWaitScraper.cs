@@ -88,6 +88,11 @@ namespace TeamCityBuildStatsScraper
             {
                 metrics.WithLabels(queuedBuild.BuildType).Observe(queuedBuild.TimeInQueue.TotalMilliseconds);
             }
+            
+            // In other scrapers we track previously-observed build types in order to reset their gauges. With a Summary, the Prometheus library
+            // needs to retain a small history of previous observations in order to calculate the P-values. There is a library default of 10 minutes 
+            // that will age out data so that memory usage doesn't grow without bound. This means that unlike the other scrapers, we don't need a
+            // metrics.WithLabels(queuedBuild.BuildType).Reset() here.
         }
 
         private void LogActivity(QueuedBuildStats[] queueStats, TimeSpan scrapeDuration)
@@ -111,7 +116,6 @@ namespace TeamCityBuildStatsScraper
 
             foreach (var item in absentBuildTypes)
             {
-                // Summaries require historic data; Prometheus.net retains ~10 mins of data so we don't need to clear these out like we would in a gauge.
                 consoleString.AppendLine($"{item} | not observed | <n/a>");
             }
 
