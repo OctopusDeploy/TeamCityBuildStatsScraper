@@ -43,15 +43,21 @@ namespace TeamCityBuildStatsScraper
 
             teamCityClient.ConnectWithAccessToken(teamCityToken);
 
-            var stopwatch = new Stopwatch();
-            stopwatch.Start();
+            var scrapeDuration = new Stopwatch();
+            scrapeDuration.Start();
             
             var queuedBuilds = GetFilteredQueuedBuilds(teamCityClient);
 
             var queueStats = GenerateQueueWaitStats(queuedBuilds);
 
-            stopwatch.Stop();
+            scrapeDuration.Stop();
+            
+            CreateOrUpdateMetrics(queueStats);
+            LogActivity(queueStats, scrapeDuration.Elapsed);
+        }
 
+        private void CreateOrUpdateMetrics(QueuedBuildStats[] queueStats)
+        {
             /*
              * A Summary gives us a sliding-time-window view of our wait times. The library we use holds a small buffer and calculates a
              * sliding P50 / P90 / P99 value for all the observations. We're unlikely to need the 'sum' value, but it could be used in our
@@ -72,26 +78,34 @@ namespace TeamCityBuildStatsScraper
              * queued_build_wait_times_by_type{buildType="OctopusDeploy_OctopusServer_Build_BuildPortal",quantile="0.9"} 2874.183
              * queued_build_wait_times_by_type{buildType="OctopusDeploy_OctopusServer_Build_BuildPortal",quantile="0.99"} 2874.183
              * queued_build_wait_times_by_type_sum{buildType="OctopusDeploy_OctopusServer_Build_BuildPortal"} 2874.183
-             * queued_build_wait_times_by_type_count{buildType="OctopusDeploy_OctopusServer_Build_BuildPortal"} 1             * 
+             * queued_build_wait_times_by_type_count{buildType="OctopusDeploy_OctopusServer_Build_BuildPortal"} 1
              */
             
             var metrics = _metricFactory
                 .CreateSummary("queued_builds_wait_times_by_type", "How long each build type has been waiting to start", "buildTypeId");
+            
+            foreach (var queuedBuild in queueStats)
+            {
+                metrics.WithLabels(queuedBuild.BuildType).Observe(queuedBuild.TimeInQueue.TotalMilliseconds);
+            }
+        }
 
+        private void LogActivity(QueuedBuildStats[] queueStats, TimeSpan scrapeDuration)
+        {
             var consoleString = new StringBuilder();
 
             consoleString.AppendLine($"Scrape complete at {DateTime.UtcNow.ToString(CultureInfo.InvariantCulture)}");
-            consoleString.AppendLine($"Completed scrape of queued build waiting time in {stopwatch.ElapsedMilliseconds} ms. Builds captured were:");
+            consoleString.AppendLine($"Completed scrape of queued build waiting time in {scrapeDuration.TotalMilliseconds} ms. Builds captured were:");
             consoleString.AppendLine("-------------------------------------------------------------------------------------------");
             consoleString.AppendLine("Build Type | Id | Wait Duration | Now | Queued Date-Time | Latest Dependency Finish Time");
 
             foreach (var queuedBuild in queueStats)
             {
-                metrics.WithLabels(queuedBuild.BuildType).Observe(queuedBuild.TimeInQueue.TotalMilliseconds);
-                consoleString.AppendLine($"{queuedBuild.BuildType} | {queuedBuild.Id} | {queuedBuild.TimeInQueue.TotalMilliseconds} | {DateTime.UtcNow} | {queuedBuild.QueuedTime} | {queuedBuild.LastDependencyFinishTime}");
+                consoleString.AppendLine(
+                    $"{queuedBuild.BuildType} | {queuedBuild.Id} | {queuedBuild.TimeInQueue.TotalMilliseconds} | {DateTime.UtcNow} | {queuedBuild.QueuedTime} | {queuedBuild.LastDependencyFinishTime}");
             }
             
-            var currentBuildTypes = queueStats.Select(x => x.BuildType).Distinct();
+            var currentBuildTypes = queueStats.Select(x => x.BuildType).Distinct().ToArray();
             _seenBuildTypes.UnionWith(currentBuildTypes);
             var absentBuildTypes = _seenBuildTypes.Except(currentBuildTypes);
 
@@ -100,7 +114,7 @@ namespace TeamCityBuildStatsScraper
                 // Summaries require historic data; Prometheus.net retains ~10 mins of data so we don't need to clear these out like we would in a gauge.
                 consoleString.AppendLine($"{item} | not observed | <n/a>");
             }
-            
+
             Console.WriteLine(consoleString.ToString());
         }
 
