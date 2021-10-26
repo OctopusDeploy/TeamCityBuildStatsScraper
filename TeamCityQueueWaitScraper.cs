@@ -125,9 +125,9 @@ namespace TeamCityBuildStatsScraper
             return queuedBuilds
                 .Select(qb =>
                 {
-                    // For builds where they have been waiting on another build, we only want to 'start the clock' from the final dependency finish time.
-                    var latestQueueDate = qb.SnapshotDependencies.Build.Any() ? qb.SnapshotDependencies.Build.Max(b => b.FinishDate) : qb.QueuedDate;
-
+                    // For builds where they have been waiting on another build, we only want to 'start the clock' from the final dependency finish time, if that's more recent.
+                    var latestQueueDate = qb.SnapshotDependencies.Build.Select(b => b.FinishDate).Concat(new[] { qb.QueuedDate }).Max();
+                    
                     return new QueuedBuildStats
                     {
                         BuildType = qb.BuildTypeId,
