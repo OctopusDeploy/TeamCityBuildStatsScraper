@@ -39,4 +39,7 @@ Every minute, the app collects this:
 - `probably_hanging_builds` - number of builds that are probably hanging, per build type
 - `queued_builds_with_reason` - total number of builds queued per wait reason
 
+Every 15 seconds, the app collects:
+- `queued_builds_wait_times_by_type` - a [Summary](https://prometheus.io/docs/concepts/metric_types/#summary) with P50, P90, and P99 values for the time spent in the queue, per build type, over a ten-minute rolling window
+
 Each gauge has a label called `buildTypeId` which matches the Build Configuration ID in TeamCity (not the numeric internal ID, but the human-readable one).

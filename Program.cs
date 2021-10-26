@@ -29,9 +29,10 @@ namespace TeamCityBuildStatsScraper
                             Port = 9090,
                             UseDefaultCollectors = false
                         }));
-                    services.AddHostedService<TeamCityQueueScraper>();
+                    services.AddHostedService<TeamCityQueueLengthScraper>();
                     services.AddHostedService<TeamCityBuildScraper>();
                     services.AddHostedService<TeamCityBuildArtifactScraper>();
+                    services.AddHostedService<TeamCityQueueWaitScraper>();
                 })
                 .UseConsoleLifetime()
                 .Build();
