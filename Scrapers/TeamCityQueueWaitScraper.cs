@@ -12,7 +12,7 @@ using Prometheus.Client;
 using TeamCitySharp;
 using TeamCitySharp.DomainEntities;
 
-namespace TeamCityBuildStatsScraper
+namespace TeamCityBuildStatsScraper.Scrapers
 {
     internal class TeamCityQueueWaitScraper : IHostedService, IDisposable
     {

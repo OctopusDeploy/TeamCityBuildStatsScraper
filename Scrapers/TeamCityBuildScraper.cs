@@ -12,7 +12,7 @@ using Prometheus.Client;
 using TeamCitySharp;
 using TeamCitySharp.Locators;
 
-namespace TeamCityBuildStatsScraper
+namespace TeamCityBuildStatsScraper.Scrapers
 {
     internal class TeamCityBuildScraper: IHostedService, IDisposable
     {

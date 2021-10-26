@@ -11,7 +11,7 @@ using Microsoft.Extensions.Hosting;
 using Prometheus.Client;
 using TeamCitySharp;
 
-namespace TeamCityBuildStatsScraper
+namespace TeamCityBuildStatsScraper.Scrapers
 {
     internal class TeamCityQueueLengthScraper: IHostedService, IDisposable
     {
