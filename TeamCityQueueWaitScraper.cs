@@ -136,9 +136,17 @@ namespace TeamCityBuildStatsScraper
                 // exclude builds just waiting on other builds
                 .Where(qb => !qb.WaitReason.Contains("Build dependencies have not been built yet"))
                 // exclude builds where any artifact dependency is still building, unless there are none
-                .Where(qb => 
-                    qb.SnapshotDependencies.Build != null && qb.SnapshotDependencies.Build.TrueForAll(b => b.State == "finished") || qb.SnapshotDependencies == null)
+                .Where(AllDependenciesComplete)
                 .ToArray();
+        }
+
+        private static bool AllDependenciesComplete(Build qb)
+        {
+            if (qb.SnapshotDependencies == null) return true;
+
+            if (qb.SnapshotDependencies.Build == null) throw new ApplicationException($"Looks like we received a build with no list of dependent builds at all, despite it apparently having snapshot dependencies. BuildTypeId: {qb.BuildTypeId}, BuildId: {qb.Id}");
+            
+            return qb.SnapshotDependencies.Build.TrueForAll(b => b.State == "finished");
         }
 
         public Task StopAsync(CancellationToken cancellationToken)
