@@ -13,19 +13,19 @@ using TeamCitySharp;
 
 namespace TeamCityBuildStatsScraper.Scrapers
 {
-    internal class TeamCityQueueLengthScraper: IHostedService, IDisposable
+    internal class TeamCityQueueLengthScraper : IHostedService, IDisposable
     {
         private readonly IMetricFactory metricFactory;
         private readonly IConfiguration configuration;
-        private Timer timer;
         private readonly HashSet<string> waitReasonList = new();
+        private Timer timer;
 
         public TeamCityQueueLengthScraper(IMetricFactory metricFactory, IConfiguration configuration)
         {
             this.metricFactory = metricFactory;
             this.configuration = configuration;
         }
-        
+
         public Task StartAsync(CancellationToken cancellationToken)
         {
             // Fire off the Scraper starting *right now* and do it again every minute
@@ -44,7 +44,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
 
             var stopwatch = new Stopwatch();
             stopwatch.Start();
-            
+
             var queuedBuilds = teamCityClient.BuildQueue
                 .GetFields("count,build(id,waitReason,buildTypeId,queuedDate,statistics(property,value,name))")
                 .All()
@@ -69,9 +69,9 @@ namespace TeamCityBuildStatsScraper.Scrapers
 
             // update wait reason list with any new reasons
             waitReasonList.UnionWith(currentWaitReasons);
-            
+
             var waitReasonsGauge = metricFactory.CreateGauge("queued_builds_with_reason", "Count of builds in the queue for each queue reason", "waitReason");
-            
+
             var consoleString = new StringBuilder();
 
             consoleString.AppendLine($"Scrape complete at {DateTime.UtcNow.ToString(CultureInfo.InvariantCulture)}");
@@ -93,10 +93,10 @@ namespace TeamCityBuildStatsScraper.Scrapers
                 waitReasonsGauge.WithLabels(item).Reset();
                 consoleString.AppendLine($"{item} | 0");
             }
-            
+
             Console.WriteLine(consoleString.ToString());
         }
-        
+
         public Task StopAsync(CancellationToken cancellationToken)
         {
             Console.WriteLine("Shutting down...");

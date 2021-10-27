@@ -18,8 +18,8 @@ namespace TeamCityBuildStatsScraper.Scrapers
     {
         private readonly IMetricFactory metricFactory;
         private readonly IConfiguration configuration;
-        private Timer timer;
         private readonly HashSet<string> seenBuildTypes = new();
+        private Timer timer;
 
         public TeamCityQueueWaitScraper(IMetricFactory metricFactory, IConfiguration configuration)
         {
@@ -88,7 +88,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             {
                 metrics.WithLabels(queuedBuild.BuildType).Observe(queuedBuild.TimeInQueue.TotalMilliseconds);
             }
-            
+
             // In other scrapers we track previously-observed build types in order to reset their gauges. With a Summary, the Prometheus library
             // needs to retain a small history of previous observations in order to calculate the P-values. There is a library default of 10 minutes 
             // that will age out data so that memory usage doesn't grow without bound. This means that unlike the other scrapers, we don't need a
@@ -131,7 +131,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
                 {
                     // For builds where they have been waiting on another build, we only want to 'start the clock' from the final dependency finish time, if that's more recent.
                     var latestQueueDate = qb.SnapshotDependencies.Build.Select(b => b.FinishDate).Concat(new[] { qb.QueuedDate }).Max();
-                    
+
                     return new QueuedBuildStats
                     {
                         BuildType = qb.BuildTypeId,

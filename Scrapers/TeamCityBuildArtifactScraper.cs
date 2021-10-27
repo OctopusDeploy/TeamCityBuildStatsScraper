@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Prometheus.Client;
 using TeamCitySharp;
+using TeamCitySharp.Locators;
 
 namespace TeamCityBuildStatsScraper.Scrapers
 {
@@ -23,7 +24,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             this.metricFactory = metricFactory;
             this.configuration = configuration;
         }
-        
+
         public Task StartAsync(CancellationToken cancellationToken)
         {
             // Fire off the Scraper starting *right now* and do it again every five minutes
@@ -42,14 +43,14 @@ namespace TeamCityBuildStatsScraper.Scrapers
 
             // We need to use UTC because the TeamCitySharp library has a problem where timezones with + are converted to -
             // However, our TeamCity instance is able to deal with filtering dates provided in UTC appropriately.
-            var locator = TeamCitySharp.Locators.BuildLocator.WithDimensions(
+            var locator = BuildLocator.WithDimensions(
                 running: false,
-                sinceDate: DateTime.UtcNow.AddMinutes(-180), 
+                sinceDate: DateTime.UtcNow.AddMinutes(-180),
                 maxResults: 1000);
 
             var stopwatch = new Stopwatch();
             stopwatch.Start();
-            
+
             var recentBuilds = teamCityClient.Builds
                 .GetFields("count,build(id,finishDate,startDate,buildTypeId,queuedDate,statistics(property,value,name))")
                 .ByBuildLocator(locator)
@@ -59,9 +60,9 @@ namespace TeamCityBuildStatsScraper.Scrapers
                 .Where(b => b.Statistics.Property.Exists(p => p.Name.Contains("dependenciesResolving")))
                 .Where(b => b.Statistics.Property.Exists(p => p.Name.Contains("artifactResolving:totalDownloaded")))
                 .ToArray();
-            
+
             stopwatch.Stop();
-            
+
             var recentBuildStats = recentBuilds.Select(rb => new
                 {
                     rb.BuildTypeId,
@@ -92,7 +93,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             consoleString.AppendLine($"Completed scrape of TeamCity in {stopwatch.ElapsedMilliseconds} ms. Gauges generated were:");
             consoleString.AppendLine("----------------------------------------------------------");
             consoleString.AppendLine("Build Type | Push Size | Push Time | Pull Size | Pull Time");
-            
+
             foreach (var item in recentBuildStats)
             {
                 pullSizeGauge.WithLabels(item.buildTypeId).Set(item.meanArtifactPullSize);
@@ -101,7 +102,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
                 publishTimeGauge.WithLabels(item.buildTypeId).Set(item.meanArtifactPublishTime);
                 consoleString.AppendLine($"{item.buildTypeId} | {item.meanArtifactPublishSize} | {item.meanArtifactPublishTime} | {item.meanArtifactPullSize} | {item.meanArtifactPullTime}");
             }
-            
+
             Console.WriteLine(consoleString.ToString());
         }
 

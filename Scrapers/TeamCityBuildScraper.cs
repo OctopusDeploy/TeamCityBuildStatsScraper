@@ -14,12 +14,12 @@ using TeamCitySharp.Locators;
 
 namespace TeamCityBuildStatsScraper.Scrapers
 {
-    internal class TeamCityBuildScraper: IHostedService, IDisposable
+    internal class TeamCityBuildScraper : IHostedService, IDisposable
     {
         private readonly IMetricFactory metricFactory;
         private readonly IConfiguration configuration;
-        private Timer timer;
         private readonly HashSet<string> seenBuildTypes = new();
+        private Timer timer;
 
         public TeamCityBuildScraper(IMetricFactory metricFactory, IConfiguration configuration)
         {
