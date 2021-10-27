@@ -16,29 +16,29 @@ namespace TeamCityBuildStatsScraper.Scrapers
 {
     internal class TeamCityQueueWaitScraper : IHostedService, IDisposable
     {
-        private readonly IMetricFactory _metricFactory;
-        private readonly IConfiguration _configuration;
-        private Timer _timer;
-        private readonly HashSet<string> _seenBuildTypes = new();
+        private readonly IMetricFactory metricFactory;
+        private readonly IConfiguration configuration;
+        private Timer timer;
+        private readonly HashSet<string> seenBuildTypes = new();
 
         public TeamCityQueueWaitScraper(IMetricFactory metricFactory, IConfiguration configuration)
         {
-            _metricFactory = metricFactory;
-            _configuration = configuration;
+            this.metricFactory = metricFactory;
+            this.configuration = configuration;
         }
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
             // Fire off the Scraper starting *right now* and do it again every fifteen seconds
-            _timer = new Timer(ScrapeBuildStats, null, TimeSpan.Zero, TimeSpan.FromSeconds(15));
+            timer = new Timer(ScrapeBuildStats, null, TimeSpan.Zero, TimeSpan.FromSeconds(15));
 
             return Task.CompletedTask;
         }
 
         private void ScrapeBuildStats(object state)
         {
-            var teamCityToken = _configuration.GetValue<string>("TEAMCITY_TOKEN");
-            var teamCityUrl = _configuration.GetValue<string>("BUILD_SERVER_URL");
+            var teamCityToken = configuration.GetValue<string>("TEAMCITY_TOKEN");
+            var teamCityUrl = configuration.GetValue<string>("BUILD_SERVER_URL");
             var teamCityClient = new TeamCityClient(teamCityUrl, true);
 
             teamCityClient.ConnectWithAccessToken(teamCityToken);
@@ -81,7 +81,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
              * queued_build_wait_times_by_type_count{buildType="OctopusDeploy_OctopusServer_Build_BuildPortal"} 1
              */
 
-            var metrics = _metricFactory
+            var metrics = metricFactory
                 .CreateSummary("queued_builds_wait_times_by_type", "How long each build type has been waiting to start", "buildTypeId");
 
             foreach (var queuedBuild in queueStats)
@@ -111,8 +111,8 @@ namespace TeamCityBuildStatsScraper.Scrapers
             }
 
             var currentBuildTypes = queueStats.Select(x => x.BuildType).Distinct().ToArray();
-            _seenBuildTypes.UnionWith(currentBuildTypes);
-            var absentBuildTypes = _seenBuildTypes.Except(currentBuildTypes);
+            seenBuildTypes.UnionWith(currentBuildTypes);
+            var absentBuildTypes = seenBuildTypes.Except(currentBuildTypes);
 
             foreach (var item in absentBuildTypes)
             {
@@ -179,7 +179,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
 
         public void Dispose()
         {
-            _timer?.Dispose();
+            timer?.Dispose();
         }
     }
 

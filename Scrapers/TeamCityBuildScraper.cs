@@ -16,29 +16,29 @@ namespace TeamCityBuildStatsScraper.Scrapers
 {
     internal class TeamCityBuildScraper: IHostedService, IDisposable
     {
-        private readonly IMetricFactory _metricFactory;
-        private readonly IConfiguration _configuration;
-        private Timer _timer;
-        private readonly HashSet<string> _seenBuildTypes = new();
+        private readonly IMetricFactory metricFactory;
+        private readonly IConfiguration configuration;
+        private Timer timer;
+        private readonly HashSet<string> seenBuildTypes = new();
 
         public TeamCityBuildScraper(IMetricFactory metricFactory, IConfiguration configuration)
         {
-            _metricFactory = metricFactory;
-            _configuration = configuration;
+            this.metricFactory = metricFactory;
+            this.configuration = configuration;
         }
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
             // Fire off the Scraper starting *right now* and do it again every minute
-            _timer = new Timer(ScrapeBuildStats, null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
+            timer = new Timer(ScrapeBuildStats, null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
 
             return Task.CompletedTask;
         }
 
         private void ScrapeBuildStats(object state)
         {
-            var teamCityToken = _configuration.GetValue<string>("TEAMCITY_TOKEN");
-            var teamCityUrl = _configuration.GetValue<string>("BUILD_SERVER_URL");
+            var teamCityToken = configuration.GetValue<string>("TEAMCITY_TOKEN");
+            var teamCityUrl = configuration.GetValue<string>("BUILD_SERVER_URL");
             var teamCityClient = new TeamCityClient(teamCityUrl, true);
 
             teamCityClient.ConnectWithAccessToken(teamCityToken);
@@ -53,7 +53,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
 
             stopwatch.Stop();
 
-            var gauge = _metricFactory.CreateGauge("probably_hanging_builds", "Count of running builds that appear to be hung", "buildTypeId");
+            var gauge = metricFactory.CreateGauge("probably_hanging_builds", "Count of running builds that appear to be hung", "buildTypeId");
 
             var consoleString = new StringBuilder();
 
@@ -69,8 +69,8 @@ namespace TeamCityBuildStatsScraper.Scrapers
             }
 
             var currentBuildTypes = hungBuilds.Select(x => x.BuildTypeId).Distinct();
-            _seenBuildTypes.UnionWith(currentBuildTypes);
-            var absentBuildTypes = _seenBuildTypes.Except(currentBuildTypes);
+            seenBuildTypes.UnionWith(currentBuildTypes);
+            var absentBuildTypes = seenBuildTypes.Except(currentBuildTypes);
 
             foreach (var item in absentBuildTypes)
             {
@@ -91,7 +91,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
 
         public void Dispose()
         {
-            _timer?.Dispose();
+            timer?.Dispose();
         }
     }
 }
