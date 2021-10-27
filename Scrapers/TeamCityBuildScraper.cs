@@ -14,12 +14,12 @@ using TeamCitySharp.Locators;
 
 namespace TeamCityBuildStatsScraper.Scrapers
 {
-    internal class TeamCityBuildScraper : IHostedService, IDisposable
+    class TeamCityBuildScraper : IHostedService, IDisposable
     {
-        private readonly IMetricFactory metricFactory;
-        private readonly IConfiguration configuration;
-        private readonly HashSet<string> seenBuildTypes = new();
-        private Timer timer;
+        readonly IMetricFactory metricFactory;
+        readonly IConfiguration configuration;
+        readonly HashSet<string> seenBuildTypes = new();
+        Timer timer;
 
         public TeamCityBuildScraper(IMetricFactory metricFactory, IConfiguration configuration)
         {
@@ -35,7 +35,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             return Task.CompletedTask;
         }
 
-        private void ScrapeBuildStats(object state)
+        void ScrapeBuildStats(object state)
         {
             var teamCityToken = configuration.GetValue<string>("TEAMCITY_TOKEN");
             var teamCityUrl = configuration.GetValue<string>("BUILD_SERVER_URL");

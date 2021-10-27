@@ -13,12 +13,12 @@ using TeamCitySharp;
 
 namespace TeamCityBuildStatsScraper.Scrapers
 {
-    internal class TeamCityQueueLengthScraper : IHostedService, IDisposable
+    class TeamCityQueueLengthScraper : IHostedService, IDisposable
     {
-        private readonly IMetricFactory metricFactory;
-        private readonly IConfiguration configuration;
-        private readonly HashSet<string> waitReasonList = new();
-        private Timer timer;
+        readonly IMetricFactory metricFactory;
+        readonly IConfiguration configuration;
+        readonly HashSet<string> waitReasonList = new();
+        Timer timer;
 
         public TeamCityQueueLengthScraper(IMetricFactory metricFactory, IConfiguration configuration)
         {
@@ -34,7 +34,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             return Task.CompletedTask;
         }
 
-        private void ScrapeQueueStats(object state)
+        void ScrapeQueueStats(object state)
         {
             var teamCityToken = configuration.GetValue<string>("TEAMCITY_TOKEN");
             var teamCityUrl = configuration.GetValue<string>("BUILD_SERVER_URL");

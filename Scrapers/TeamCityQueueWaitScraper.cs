@@ -14,12 +14,12 @@ using TeamCitySharp.DomainEntities;
 
 namespace TeamCityBuildStatsScraper.Scrapers
 {
-    internal class TeamCityQueueWaitScraper : IHostedService, IDisposable
+    class TeamCityQueueWaitScraper : IHostedService, IDisposable
     {
-        private readonly IMetricFactory metricFactory;
-        private readonly IConfiguration configuration;
-        private readonly HashSet<string> seenBuildTypes = new();
-        private Timer timer;
+        readonly IMetricFactory metricFactory;
+        readonly IConfiguration configuration;
+        readonly HashSet<string> seenBuildTypes = new();
+        Timer timer;
 
         public TeamCityQueueWaitScraper(IMetricFactory metricFactory, IConfiguration configuration)
         {
@@ -35,7 +35,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             return Task.CompletedTask;
         }
 
-        private void ScrapeBuildStats(object state)
+        void ScrapeBuildStats(object state)
         {
             var teamCityToken = configuration.GetValue<string>("TEAMCITY_TOKEN");
             var teamCityUrl = configuration.GetValue<string>("BUILD_SERVER_URL");
@@ -56,7 +56,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             LogActivity(queueStats, scrapeDuration.Elapsed);
         }
 
-        private void CreateOrUpdateMetrics(QueuedBuildStats[] queueStats)
+        void CreateOrUpdateMetrics(QueuedBuildStats[] queueStats)
         {
             /*
              * A Summary gives us a sliding-time-window view of our wait times. The library we use holds a small buffer and calculates a
@@ -95,7 +95,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             // metrics.WithLabels(queuedBuild.BuildType).Reset() here.
         }
 
-        private void LogActivity(QueuedBuildStats[] queueStats, TimeSpan scrapeDuration)
+        void LogActivity(QueuedBuildStats[] queueStats, TimeSpan scrapeDuration)
         {
             var consoleString = new StringBuilder();
 
@@ -122,7 +122,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             Console.WriteLine(consoleString.ToString());
         }
 
-        private static QueuedBuildStats[] GenerateQueueWaitStats(Build[] queuedBuilds)
+        static QueuedBuildStats[] GenerateQueueWaitStats(Build[] queuedBuilds)
         {
             var now = DateTime.UtcNow;
 
@@ -144,7 +144,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
                 .ToArray();
         }
 
-        private static Build[] GetFilteredQueuedBuilds(TeamCityClient teamCityClient)
+        static Build[] GetFilteredQueuedBuilds(TeamCityClient teamCityClient)
         {
             return teamCityClient.BuildQueue
                 .GetFields(
@@ -159,7 +159,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
                 .ToArray();
         }
 
-        private static bool AllDependenciesComplete(Build qb)
+        static bool AllDependenciesComplete(Build qb)
         {
             if (qb.SnapshotDependencies == null) return true;
 
@@ -183,7 +183,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
         }
     }
 
-    internal class QueuedBuildStats
+    class QueuedBuildStats
     {
         public string BuildType { get; set; }
         public string Id { get; set; }
