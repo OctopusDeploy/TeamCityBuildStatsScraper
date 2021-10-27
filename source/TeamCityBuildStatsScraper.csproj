@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net5.0</TargetFramework>
+        <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Prometheus.Client" Version="4.5.3" />
+        <PackageReference Include="Prometheus.Client.DependencyInjection" Version="1.0.0" />
+        <PackageReference Include="Prometheus.Client.MetricServer" Version="4.3.1" />
+        <PackageReference Include="TeamCitySharp-forked-mavezeau" Version="2.0.13" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Content Include="..\Dockerfile">
+        <Link>Dockerfile</Link>
+      </Content>
+      <Content Include="..\global.json">
+        <Link>global.json</Link>
+      </Content>
+      <Content Include="..\LICENSE.txt">
+        <Link>LICENSE.txt</Link>
+      </Content>
+      <Content Include="..\octoversion.json">
+        <Link>octoversion.json</Link>
+      </Content>
+      <Content Include="..\README.md">
+        <Link>README.md</Link>
+      </Content>
+    </ItemGroup>
+
+</Project>

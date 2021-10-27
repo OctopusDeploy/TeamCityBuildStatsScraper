@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Prometheus.Client.Collectors;
 using Prometheus.Client.DependencyInjection;
 using Prometheus.Client.MetricServer;
+using TeamCityBuildStatsScraper.Scrapers;
 
 namespace TeamCityBuildStatsScraper
 {

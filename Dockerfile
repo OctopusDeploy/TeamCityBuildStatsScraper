@@ -3,7 +3,7 @@ WORKDIR /app
 
 FROM mcr.microsoft.com/dotnet/sdk:5.0 AS build
 WORKDIR /src
-COPY ["TeamCityBuildStatsScraper.csproj", "./"]
+COPY ["source/TeamCityBuildStatsScraper.csproj", "./"]
 RUN dotnet restore "TeamCityBuildStatsScraper.csproj"
 COPY . .
 WORKDIR "/src/"

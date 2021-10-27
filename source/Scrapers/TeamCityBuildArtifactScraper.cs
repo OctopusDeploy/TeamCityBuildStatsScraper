@@ -9,47 +9,48 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Prometheus.Client;
 using TeamCitySharp;
+using TeamCitySharp.Locators;
 
-namespace TeamCityBuildStatsScraper
+namespace TeamCityBuildStatsScraper.Scrapers
 {
-    internal class TeamCityBuildArtifactScraper : IHostedService, IDisposable
+    class TeamCityBuildArtifactScraper : IHostedService, IDisposable
     {
-        private readonly IMetricFactory _metricFactory;
-        private readonly IConfiguration _configuration;
-        private Timer _timer;
+        readonly IMetricFactory metricFactory;
+        readonly IConfiguration configuration;
+        Timer timer;
 
         public TeamCityBuildArtifactScraper(IMetricFactory metricFactory, IConfiguration configuration)
         {
-            _metricFactory = metricFactory;
-            _configuration = configuration;
+            this.metricFactory = metricFactory;
+            this.configuration = configuration;
         }
-        
+
         public Task StartAsync(CancellationToken cancellationToken)
         {
             // Fire off the Scraper starting *right now* and do it again every five minutes
-            _timer = new Timer(ScrapeArtifactStats, null, TimeSpan.Zero, TimeSpan.FromMinutes(5));
+            timer = new Timer(ScrapeArtifactStats, null, TimeSpan.Zero, TimeSpan.FromMinutes(5));
 
             return Task.CompletedTask;
         }
 
-        private void ScrapeArtifactStats(object state)
+        void ScrapeArtifactStats(object state)
         {
-            var teamCityToken = _configuration.GetValue<string>("TEAMCITY_TOKEN");
-            var teamCityUrl = _configuration.GetValue<string>("BUILD_SERVER_URL");
+            var teamCityToken = configuration.GetValue<string>("TEAMCITY_TOKEN");
+            var teamCityUrl = configuration.GetValue<string>("BUILD_SERVER_URL");
             var teamCityClient = new TeamCityClient(teamCityUrl, true);
 
             teamCityClient.ConnectWithAccessToken(teamCityToken);
 
             // We need to use UTC because the TeamCitySharp library has a problem where timezones with + are converted to -
             // However, our TeamCity instance is able to deal with filtering dates provided in UTC appropriately.
-            var locator = TeamCitySharp.Locators.BuildLocator.WithDimensions(
+            var locator = BuildLocator.WithDimensions(
                 running: false,
-                sinceDate: DateTime.UtcNow.AddMinutes(-180), 
+                sinceDate: DateTime.UtcNow.AddMinutes(-180),
                 maxResults: 1000);
 
             var stopwatch = new Stopwatch();
             stopwatch.Start();
-            
+
             var recentBuilds = teamCityClient.Builds
                 .GetFields("count,build(id,finishDate,startDate,buildTypeId,queuedDate,statistics(property,value,name))")
                 .ByBuildLocator(locator)
@@ -59,9 +60,9 @@ namespace TeamCityBuildStatsScraper
                 .Where(b => b.Statistics.Property.Exists(p => p.Name.Contains("dependenciesResolving")))
                 .Where(b => b.Statistics.Property.Exists(p => p.Name.Contains("artifactResolving:totalDownloaded")))
                 .ToArray();
-            
+
             stopwatch.Stop();
-            
+
             var recentBuildStats = recentBuilds.Select(rb => new
                 {
                     rb.BuildTypeId,
@@ -81,10 +82,10 @@ namespace TeamCityBuildStatsScraper
                 })
                 .ToArray();
 
-            var publishSizeGauge = _metricFactory.CreateGauge("build_artifact_push_size", "Size of artifacts pushed by a build", "buildTypeId");
-            var publishTimeGauge = _metricFactory.CreateGauge("build_artifact_push_time", "Time in ms for artifacts to be pushed by a build", "buildTypeId");
-            var pullSizeGauge = _metricFactory.CreateGauge("build_artifact_pull_size", "Size of artifacts pulled into a build", "buildTypeId");
-            var pullTimeGauge = _metricFactory.CreateGauge("build_artifact_pull_time", "Time in ms for artifacts to be pulled into a build", "buildTypeId");
+            var publishSizeGauge = metricFactory.CreateGauge("build_artifact_push_size", "Size of artifacts pushed by a build", "buildTypeId");
+            var publishTimeGauge = metricFactory.CreateGauge("build_artifact_push_time", "Time in ms for artifacts to be pushed by a build", "buildTypeId");
+            var pullSizeGauge = metricFactory.CreateGauge("build_artifact_pull_size", "Size of artifacts pulled into a build", "buildTypeId");
+            var pullTimeGauge = metricFactory.CreateGauge("build_artifact_pull_time", "Time in ms for artifacts to be pulled into a build", "buildTypeId");
 
             var consoleString = new StringBuilder();
 
@@ -92,7 +93,7 @@ namespace TeamCityBuildStatsScraper
             consoleString.AppendLine($"Completed scrape of TeamCity in {stopwatch.ElapsedMilliseconds} ms. Gauges generated were:");
             consoleString.AppendLine("----------------------------------------------------------");
             consoleString.AppendLine("Build Type | Push Size | Push Time | Pull Size | Pull Time");
-            
+
             foreach (var item in recentBuildStats)
             {
                 pullSizeGauge.WithLabels(item.buildTypeId).Set(item.meanArtifactPullSize);
@@ -101,7 +102,7 @@ namespace TeamCityBuildStatsScraper
                 publishTimeGauge.WithLabels(item.buildTypeId).Set(item.meanArtifactPublishTime);
                 consoleString.AppendLine($"{item.buildTypeId} | {item.meanArtifactPublishSize} | {item.meanArtifactPublishTime} | {item.meanArtifactPullSize} | {item.meanArtifactPullTime}");
             }
-            
+
             Console.WriteLine(consoleString.ToString());
         }
 
@@ -114,7 +115,7 @@ namespace TeamCityBuildStatsScraper
 
         public void Dispose()
         {
-            _timer?.Dispose();
+            timer?.Dispose();
         }
     }
 }

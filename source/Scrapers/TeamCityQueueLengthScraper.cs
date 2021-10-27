@@ -11,40 +11,40 @@ using Microsoft.Extensions.Hosting;
 using Prometheus.Client;
 using TeamCitySharp;
 
-namespace TeamCityBuildStatsScraper
+namespace TeamCityBuildStatsScraper.Scrapers
 {
-    internal class TeamCityQueueLengthScraper: IHostedService, IDisposable
+    class TeamCityQueueLengthScraper : IHostedService, IDisposable
     {
-        private readonly IMetricFactory _metricFactory;
-        private readonly IConfiguration _configuration;
-        private Timer _timer;
-        private readonly HashSet<string> _waitReasonList = new();
+        readonly IMetricFactory metricFactory;
+        readonly IConfiguration configuration;
+        readonly HashSet<string> waitReasonList = new();
+        Timer timer;
 
         public TeamCityQueueLengthScraper(IMetricFactory metricFactory, IConfiguration configuration)
         {
-            _metricFactory = metricFactory;
-            _configuration = configuration;
+            this.metricFactory = metricFactory;
+            this.configuration = configuration;
         }
-        
+
         public Task StartAsync(CancellationToken cancellationToken)
         {
             // Fire off the Scraper starting *right now* and do it again every minute
-            _timer = new Timer(ScrapeQueueStats, null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
+            timer = new Timer(ScrapeQueueStats, null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
 
             return Task.CompletedTask;
         }
 
-        private void ScrapeQueueStats(object state)
+        void ScrapeQueueStats(object state)
         {
-            var teamCityToken = _configuration.GetValue<string>("TEAMCITY_TOKEN");
-            var teamCityUrl = _configuration.GetValue<string>("BUILD_SERVER_URL");
+            var teamCityToken = configuration.GetValue<string>("TEAMCITY_TOKEN");
+            var teamCityUrl = configuration.GetValue<string>("BUILD_SERVER_URL");
             var teamCityClient = new TeamCityClient(teamCityUrl, true);
 
             teamCityClient.ConnectWithAccessToken(teamCityToken);
 
             var stopwatch = new Stopwatch();
             stopwatch.Start();
-            
+
             var queuedBuilds = teamCityClient.BuildQueue
                 .GetFields("count,build(id,waitReason,buildTypeId,queuedDate,statistics(property,value,name))")
                 .All()
@@ -68,10 +68,10 @@ namespace TeamCityBuildStatsScraper
                 .ToHashSet();
 
             // update wait reason list with any new reasons
-            _waitReasonList.UnionWith(currentWaitReasons);
-            
-            var waitReasonsGauge = _metricFactory.CreateGauge("queued_builds_with_reason", "Count of builds in the queue for each queue reason", "waitReason");
-            
+            waitReasonList.UnionWith(currentWaitReasons);
+
+            var waitReasonsGauge = metricFactory.CreateGauge("queued_builds_with_reason", "Count of builds in the queue for each queue reason", "waitReason");
+
             var consoleString = new StringBuilder();
 
             consoleString.AppendLine($"Scrape complete at {DateTime.UtcNow.ToString(CultureInfo.InvariantCulture)}");
@@ -85,7 +85,7 @@ namespace TeamCityBuildStatsScraper
                 consoleString.AppendLine($"{item.waitReason} | {item.queuedBuildCount}");
             }
 
-            var absentWaitReasons = _waitReasonList.Except(currentWaitReasons);
+            var absentWaitReasons = waitReasonList.Except(currentWaitReasons);
 
             foreach (var item in absentWaitReasons)
             {
@@ -93,10 +93,10 @@ namespace TeamCityBuildStatsScraper
                 waitReasonsGauge.WithLabels(item).Reset();
                 consoleString.AppendLine($"{item} | 0");
             }
-            
+
             Console.WriteLine(consoleString.ToString());
         }
-        
+
         public Task StopAsync(CancellationToken cancellationToken)
         {
             Console.WriteLine("Shutting down...");
@@ -106,7 +106,7 @@ namespace TeamCityBuildStatsScraper
 
         public void Dispose()
         {
-            _timer?.Dispose();
+            timer?.Dispose();
         }
     }
 }

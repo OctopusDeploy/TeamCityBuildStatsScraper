@@ -12,33 +12,33 @@ using Prometheus.Client;
 using TeamCitySharp;
 using TeamCitySharp.DomainEntities;
 
-namespace TeamCityBuildStatsScraper
+namespace TeamCityBuildStatsScraper.Scrapers
 {
-    internal class TeamCityQueueWaitScraper : IHostedService, IDisposable
+    class TeamCityQueueWaitScraper : IHostedService, IDisposable
     {
-        private readonly IMetricFactory _metricFactory;
-        private readonly IConfiguration _configuration;
-        private Timer _timer;
-        private readonly HashSet<string> _seenBuildTypes = new();
+        readonly IMetricFactory metricFactory;
+        readonly IConfiguration configuration;
+        readonly HashSet<string> seenBuildTypes = new();
+        Timer timer;
 
         public TeamCityQueueWaitScraper(IMetricFactory metricFactory, IConfiguration configuration)
         {
-            _metricFactory = metricFactory;
-            _configuration = configuration;
+            this.metricFactory = metricFactory;
+            this.configuration = configuration;
         }
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
             // Fire off the Scraper starting *right now* and do it again every fifteen seconds
-            _timer = new Timer(ScrapeBuildStats, null, TimeSpan.Zero, TimeSpan.FromSeconds(15));
+            timer = new Timer(ScrapeBuildStats, null, TimeSpan.Zero, TimeSpan.FromSeconds(15));
 
             return Task.CompletedTask;
         }
 
-        private void ScrapeBuildStats(object state)
+        void ScrapeBuildStats(object state)
         {
-            var teamCityToken = _configuration.GetValue<string>("TEAMCITY_TOKEN");
-            var teamCityUrl = _configuration.GetValue<string>("BUILD_SERVER_URL");
+            var teamCityToken = configuration.GetValue<string>("TEAMCITY_TOKEN");
+            var teamCityUrl = configuration.GetValue<string>("BUILD_SERVER_URL");
             var teamCityClient = new TeamCityClient(teamCityUrl, true);
 
             teamCityClient.ConnectWithAccessToken(teamCityToken);
@@ -56,7 +56,7 @@ namespace TeamCityBuildStatsScraper
             LogActivity(queueStats, scrapeDuration.Elapsed);
         }
 
-        private void CreateOrUpdateMetrics(QueuedBuildStats[] queueStats)
+        void CreateOrUpdateMetrics(QueuedBuildStats[] queueStats)
         {
             /*
              * A Summary gives us a sliding-time-window view of our wait times. The library we use holds a small buffer and calculates a
@@ -81,21 +81,21 @@ namespace TeamCityBuildStatsScraper
              * queued_build_wait_times_by_type_count{buildType="OctopusDeploy_OctopusServer_Build_BuildPortal"} 1
              */
 
-            var metrics = _metricFactory
+            var metrics = metricFactory
                 .CreateSummary("queued_builds_wait_times_by_type", "How long each build type has been waiting to start", "buildTypeId");
 
             foreach (var queuedBuild in queueStats)
             {
                 metrics.WithLabels(queuedBuild.BuildType).Observe(queuedBuild.TimeInQueue.TotalMilliseconds);
             }
-            
+
             // In other scrapers we track previously-observed build types in order to reset their gauges. With a Summary, the Prometheus library
             // needs to retain a small history of previous observations in order to calculate the P-values. There is a library default of 10 minutes 
             // that will age out data so that memory usage doesn't grow without bound. This means that unlike the other scrapers, we don't need a
             // metrics.WithLabels(queuedBuild.BuildType).Reset() here.
         }
 
-        private void LogActivity(QueuedBuildStats[] queueStats, TimeSpan scrapeDuration)
+        void LogActivity(QueuedBuildStats[] queueStats, TimeSpan scrapeDuration)
         {
             var consoleString = new StringBuilder();
 
@@ -111,8 +111,8 @@ namespace TeamCityBuildStatsScraper
             }
 
             var currentBuildTypes = queueStats.Select(x => x.BuildType).Distinct().ToArray();
-            _seenBuildTypes.UnionWith(currentBuildTypes);
-            var absentBuildTypes = _seenBuildTypes.Except(currentBuildTypes);
+            seenBuildTypes.UnionWith(currentBuildTypes);
+            var absentBuildTypes = seenBuildTypes.Except(currentBuildTypes);
 
             foreach (var item in absentBuildTypes)
             {
@@ -122,7 +122,7 @@ namespace TeamCityBuildStatsScraper
             Console.WriteLine(consoleString.ToString());
         }
 
-        private static QueuedBuildStats[] GenerateQueueWaitStats(Build[] queuedBuilds)
+        static QueuedBuildStats[] GenerateQueueWaitStats(Build[] queuedBuilds)
         {
             var now = DateTime.UtcNow;
 
@@ -131,7 +131,7 @@ namespace TeamCityBuildStatsScraper
                 {
                     // For builds where they have been waiting on another build, we only want to 'start the clock' from the final dependency finish time, if that's more recent.
                     var latestQueueDate = qb.SnapshotDependencies.Build.Select(b => b.FinishDate).Concat(new[] { qb.QueuedDate }).Max();
-                    
+
                     return new QueuedBuildStats
                     {
                         BuildType = qb.BuildTypeId,
@@ -144,7 +144,7 @@ namespace TeamCityBuildStatsScraper
                 .ToArray();
         }
 
-        private static Build[] GetFilteredQueuedBuilds(TeamCityClient teamCityClient)
+        static Build[] GetFilteredQueuedBuilds(TeamCityClient teamCityClient)
         {
             return teamCityClient.BuildQueue
                 .GetFields(
@@ -159,7 +159,7 @@ namespace TeamCityBuildStatsScraper
                 .ToArray();
         }
 
-        private static bool AllDependenciesComplete(Build qb)
+        static bool AllDependenciesComplete(Build qb)
         {
             if (qb.SnapshotDependencies == null) return true;
 
@@ -179,11 +179,11 @@ namespace TeamCityBuildStatsScraper
 
         public void Dispose()
         {
-            _timer?.Dispose();
+            timer?.Dispose();
         }
     }
 
-    internal class QueuedBuildStats
+    class QueuedBuildStats
     {
         public string BuildType { get; set; }
         public string Id { get; set; }
