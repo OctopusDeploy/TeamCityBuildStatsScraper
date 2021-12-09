@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
@@ -146,6 +147,8 @@ namespace TeamCityBuildStatsScraper.Scrapers
 
         static Build[] GetFilteredQueuedBuilds(TeamCityClient teamCityClient)
         {
+            var branchWaitRegex = new Regex("branch .+ is already building", RegexOptions.IgnoreCase);
+            
             return teamCityClient.BuildQueue
                 .GetFields(
                     "count,build(id,waitReason,buildTypeId,queuedDate,snapshot-dependencies(count,build(state,status,finishDate)),artifact-dependencies(count,build(state,status,finishDate)))")
@@ -154,6 +157,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
                 .Where(qb => qb.WaitReason != null)
                 // exclude builds just waiting on other builds
                 .Where(qb => !qb.WaitReason.Contains("Build dependencies have not been built yet"))
+                .Where(qb => !branchWaitRegex.IsMatch(qb.WaitReason))
                 // exclude builds where any artifact dependency is still building, unless there are none
                 .Where(AllDependenciesComplete)
                 .ToArray();
@@ -164,7 +168,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             if (qb.SnapshotDependencies == null) return true;
 
             if (qb.SnapshotDependencies.Build == null)
-                throw new ApplicationException(
+                throw new InvalidOperationException(
                     $"Looks like we received a build with no list of dependent builds at all, despite it apparently having snapshot dependencies. BuildTypeId: {qb.BuildTypeId}, BuildId: {qb.Id}");
 
             return qb.SnapshotDependencies.Build.TrueForAll(b => b.State == "finished");
