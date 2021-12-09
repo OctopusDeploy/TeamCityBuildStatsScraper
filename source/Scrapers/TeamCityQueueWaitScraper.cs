@@ -164,7 +164,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             if (qb.SnapshotDependencies == null) return true;
 
             if (qb.SnapshotDependencies.Build == null)
-                throw new ApplicationException(
+                throw new InvalidOperationException(
                     $"Looks like we received a build with no list of dependent builds at all, despite it apparently having snapshot dependencies. BuildTypeId: {qb.BuildTypeId}, BuildId: {qb.Id}");
 
             return qb.SnapshotDependencies.Build.TrueForAll(b => b.State == "finished");
