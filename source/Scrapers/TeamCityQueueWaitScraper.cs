@@ -157,7 +157,10 @@ namespace TeamCityBuildStatsScraper.Scrapers
                 .Where(qb => qb.WaitReason != null)
                 // exclude builds just waiting on other builds
                 .Where(qb => !qb.WaitReason.Contains("Build dependencies have not been built yet"))
+                // these 3 exclude builds waiting due to concurrency limits
                 .Where(qb => !branchWaitRegex.IsMatch(qb.WaitReason))
+                .Where(qb => !qb.WaitReason.Contains("The maximum number of running builds for this configuration is reached"))
+                .Where(qb => !qb.WaitReason.Contains("Build is waiting for the following resource to become available"))
                 // exclude builds where any artifact dependency is still building, unless there are none
                 .Where(AllDependenciesComplete)
                 .ToArray();
