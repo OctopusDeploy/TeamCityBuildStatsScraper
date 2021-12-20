@@ -55,7 +55,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             stopwatch.Stop();
 
             var queueStats = queuedBuilds
-                .GroupBy(qb => qb.WaitReason)
+                .GroupBy(qb => Sanitize(qb.WaitReason))
                 .Select(qb => new
                 {
                     waitReason = qb.Key,
@@ -95,6 +95,13 @@ namespace TeamCityBuildStatsScraper.Scrapers
             }
 
             Console.WriteLine(consoleString.ToString());
+        }
+
+        string Sanitize(string waitReason)
+        {
+            return waitReason.StartsWith("Build is waiting for the following resource to become available")
+                ? "Build is waiting for a shared resource"
+                : waitReason;
         }
 
         public Task StopAsync(CancellationToken cancellationToken)
