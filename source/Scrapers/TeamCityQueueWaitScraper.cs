@@ -103,12 +103,12 @@ namespace TeamCityBuildStatsScraper.Scrapers
             consoleString.AppendLine($"Scrape complete at {DateTime.UtcNow.ToString(CultureInfo.InvariantCulture)}");
             consoleString.AppendLine($"Completed scrape of queued build waiting time in {scrapeDuration.TotalMilliseconds} ms. Builds captured were:");
             consoleString.AppendLine("-------------------------------------------------------------------------------------------");
-            consoleString.AppendLine("Build Type | Id | Wait Duration | Now | Queued Date-Time | Latest Dependency Finish Time");
+            consoleString.AppendLine("Build Type | Id | Wait Duration | Now | Queued Date-Time | Latest Dependency Finish Time | Wait Reason");
 
             foreach (var queuedBuild in queueStats)
             {
                 consoleString.AppendLine(
-                    $"{queuedBuild.BuildType} | {queuedBuild.Id} | {queuedBuild.TimeInQueue.TotalMilliseconds} | {DateTime.UtcNow} | {queuedBuild.QueuedTime} | {queuedBuild.LastDependencyFinishTime}");
+                    $"{queuedBuild.BuildType} | {queuedBuild.Id} | {queuedBuild.TimeInQueue.TotalMilliseconds} | {DateTime.UtcNow} | {queuedBuild.QueuedTime} | {queuedBuild.LastDependencyFinishTime} | {queuedBuild.WaitReason}");
             }
 
             var currentBuildTypes = queueStats.Select(x => x.BuildType).Distinct().ToArray();
@@ -139,7 +139,8 @@ namespace TeamCityBuildStatsScraper.Scrapers
                         Id = qb.Id,
                         QueuedTime = (qb.QueuedDate), // local development you may need to offset these values; TC seems to do some magic converting TZs
                         LastDependencyFinishTime = latestQueueDate,
-                        TimeInQueue = now - latestQueueDate
+                        TimeInQueue = now - latestQueueDate,
+                        WaitReason = qb.WaitReason
                     };
                 })
                 .ToArray();
@@ -192,10 +193,11 @@ namespace TeamCityBuildStatsScraper.Scrapers
 
     class QueuedBuildStats
     {
-        public string BuildType { get; set; }
-        public string Id { get; set; }
-        public DateTime QueuedTime { get; set; }
-        public DateTime LastDependencyFinishTime { get; set; }
-        public TimeSpan TimeInQueue { get; set; }
+        public string BuildType { get; init; }
+        public string Id { get; init; }
+        public DateTime QueuedTime { get; init; }
+        public DateTime LastDependencyFinishTime { get; init; }
+        public TimeSpan TimeInQueue { get; init; }
+        public string WaitReason { get; init; }
     }
 }
