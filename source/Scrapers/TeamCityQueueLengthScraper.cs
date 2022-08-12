@@ -17,7 +17,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
     {
         readonly IMetricFactory metricFactory;
         readonly IConfiguration configuration;
-        readonly HashSet<string> waitReasonList = new();
+        readonly HashSet<(string buildTypeId, string waitReason)> waitReasonList = new();
         Timer timer;
 
         public TeamCityQueueLengthScraper(IMetricFactory metricFactory, IConfiguration configuration)
@@ -55,22 +55,23 @@ namespace TeamCityBuildStatsScraper.Scrapers
             stopwatch.Stop();
 
             var queueStats = queuedBuilds
-                .GroupBy(qb => Sanitize(qb.WaitReason))
+                .GroupBy(qb => new { buildTypeId = qb.BuildTypeId, waitReason = Sanitize(qb.WaitReason) })
                 .Select(qb => new
                 {
-                    waitReason = qb.Key,
+                    waitReason = qb.Key.waitReason,
+                    buildTypeId = qb.Key.buildTypeId,
                     queuedBuildCount = qb.Count()
                 })
                 .ToArray();
 
             var currentWaitReasons = queueStats
-                .Select(qs => qs.waitReason)
+                .Select(qs => (qs.buildTypeId, qs.waitReason ))
                 .ToHashSet();
 
             // update wait reason list with any new reasons
             waitReasonList.UnionWith(currentWaitReasons);
 
-            var waitReasonsGauge = metricFactory.CreateGauge("queued_builds_with_reason", "Count of builds in the queue for each queue reason", "waitReason");
+            var waitReasonsGauge = metricFactory.CreateGauge("queued_builds_with_reason", "Count of builds in the queue for each queue reason", "buildTypeId", "waitReason");
 
             var consoleString = new StringBuilder();
 
@@ -81,7 +82,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
 
             foreach (var item in queueStats)
             {
-                waitReasonsGauge.WithLabels(item.waitReason).Set(item.queuedBuildCount);
+                waitReasonsGauge.WithLabels(item.buildTypeId, item.waitReason).Set(item.queuedBuildCount);
                 consoleString.AppendLine($"{item.waitReason} | {item.queuedBuildCount}");
             }
 
@@ -90,7 +91,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             foreach (var item in absentWaitReasons)
             {
                 // if not present, reset the gauge to zero
-                waitReasonsGauge.WithLabels(item).Reset();
+                waitReasonsGauge.WithLabels(item.buildTypeId, item.waitReason).Reset();
                 consoleString.AppendLine($"{item} | 0");
             }
 
