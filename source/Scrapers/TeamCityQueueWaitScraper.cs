@@ -83,11 +83,11 @@ namespace TeamCityBuildStatsScraper.Scrapers
              */
 
             var metrics = metricFactory
-                .CreateSummary("queued_builds_wait_times_by_type", "How long each build type has been waiting to start", "buildTypeId");
+                .CreateSummary("queued_builds_wait_times_by_type", "How long each build type has been waiting to start", "buildTypeId", "waitReason");
 
             foreach (var queuedBuild in queueStats)
             {
-                metrics.WithLabels(queuedBuild.BuildType).Observe(queuedBuild.TimeInQueue.TotalMilliseconds);
+                metrics.WithLabels(queuedBuild.BuildType, queuedBuild.WaitReason).Observe(queuedBuild.TimeInQueue.TotalMilliseconds);
             }
 
             // In other scrapers we track previously-observed build types in order to reset their gauges. With a Summary, the Prometheus library
