@@ -5,22 +5,18 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
 using Prometheus.Client;
 using TeamCitySharp;
 using TeamCitySharp.DomainEntities;
 
 namespace TeamCityBuildStatsScraper.Scrapers
 {
-    class TeamCityQueueWaitScraper : IHostedService, IDisposable
+    class TeamCityQueueWaitScraper : BackgroundService
     {
         readonly IMetricFactory metricFactory;
         readonly IConfiguration configuration;
         readonly HashSet<string> seenBuildTypes = new();
-        Timer timer;
 
         public TeamCityQueueWaitScraper(IMetricFactory metricFactory, IConfiguration configuration)
         {
@@ -28,15 +24,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             this.configuration = configuration;
         }
 
-        public Task StartAsync(CancellationToken cancellationToken)
-        {
-            // Fire off the Scraper starting *right now* and do it again every fifteen seconds
-            timer = new Timer(ScrapeBuildStats, null, TimeSpan.Zero, TimeSpan.FromSeconds(15));
-
-            return Task.CompletedTask;
-        }
-
-        void ScrapeBuildStats(object state)
+        protected override void Scrape()
         {
             var teamCityToken = configuration.GetValue<string>("TEAMCITY_TOKEN");
             var teamCityUrl = configuration.GetValue<string>("BUILD_SERVER_URL");
@@ -176,18 +164,6 @@ namespace TeamCityBuildStatsScraper.Scrapers
                     $"Looks like we received a build with no list of dependent builds at all, despite it apparently having snapshot dependencies. BuildTypeId: {qb.BuildTypeId}, BuildId: {qb.Id}");
 
             return qb.SnapshotDependencies.Build.TrueForAll(b => b.State == "finished");
-        }
-
-        public Task StopAsync(CancellationToken cancellationToken)
-        {
-            Console.WriteLine("Shutting down...");
-
-            return Task.CompletedTask;
-        }
-
-        public void Dispose()
-        {
-            timer?.Dispose();
         }
     }
 

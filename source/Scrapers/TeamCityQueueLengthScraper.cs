@@ -4,21 +4,17 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
 using Prometheus.Client;
 using TeamCitySharp;
 
 namespace TeamCityBuildStatsScraper.Scrapers
 {
-    class TeamCityQueueLengthScraper : IHostedService, IDisposable
+    class TeamCityQueueLengthScraper : BackgroundService
     {
         readonly IMetricFactory metricFactory;
         readonly IConfiguration configuration;
         readonly HashSet<(string buildTypeId, string waitReason)> waitReasonList = new();
-        Timer timer;
 
         public TeamCityQueueLengthScraper(IMetricFactory metricFactory, IConfiguration configuration)
         {
@@ -26,15 +22,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             this.configuration = configuration;
         }
 
-        public Task StartAsync(CancellationToken cancellationToken)
-        {
-            // Fire off the Scraper starting *right now* and do it again every minute
-            timer = new Timer(ScrapeQueueStats, null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
-
-            return Task.CompletedTask;
-        }
-
-        void ScrapeQueueStats(object state)
+        protected override void Scrape()
         {
             var teamCityToken = configuration.GetValue<string>("TEAMCITY_TOKEN");
             var teamCityUrl = configuration.GetValue<string>("BUILD_SERVER_URL");
@@ -103,18 +91,6 @@ namespace TeamCityBuildStatsScraper.Scrapers
             return waitReason.StartsWith("Build is waiting for the following resource to become available")
                 ? "Build is waiting for a shared resource"
                 : waitReason;
-        }
-
-        public Task StopAsync(CancellationToken cancellationToken)
-        {
-            Console.WriteLine("Shutting down...");
-
-            return Task.CompletedTask;
-        }
-
-        public void Dispose()
-        {
-            timer?.Dispose();
         }
     }
 }
