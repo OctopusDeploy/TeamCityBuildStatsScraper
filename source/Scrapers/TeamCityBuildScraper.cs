@@ -14,12 +14,11 @@ using TeamCitySharp.Locators;
 
 namespace TeamCityBuildStatsScraper.Scrapers
 {
-    class TeamCityBuildScraper : IHostedService, IDisposable
+    class TeamCityBuildScraper : BackgroundService
     {
         readonly IMetricFactory metricFactory;
         readonly IConfiguration configuration;
         readonly HashSet<string> seenBuildTypes = new();
-        Timer timer;
 
         public TeamCityBuildScraper(IMetricFactory metricFactory, IConfiguration configuration)
         {
@@ -27,15 +26,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             this.configuration = configuration;
         }
 
-        public Task StartAsync(CancellationToken cancellationToken)
-        {
-            // Fire off the Scraper starting *right now* and do it again every minute
-            timer = new Timer(ScrapeBuildStats, null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
-
-            return Task.CompletedTask;
-        }
-
-        void ScrapeBuildStats(object state)
+        protected override void Scrape()
         {
             var teamCityToken = configuration.GetValue<string>("TEAMCITY_TOKEN");
             var teamCityUrl = configuration.GetValue<string>("BUILD_SERVER_URL");
@@ -80,18 +71,6 @@ namespace TeamCityBuildStatsScraper.Scrapers
             }
 
             Console.WriteLine(consoleString.ToString());
-        }
-
-        public Task StopAsync(CancellationToken cancellationToken)
-        {
-            Console.WriteLine("Shutting down...");
-
-            return Task.CompletedTask;
-        }
-
-        public void Dispose()
-        {
-            timer?.Dispose();
         }
     }
 }
