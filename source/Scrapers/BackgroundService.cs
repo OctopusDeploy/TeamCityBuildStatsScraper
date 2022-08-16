@@ -23,7 +23,7 @@ public abstract class BackgroundService : IHostedService, IDisposable
 
     async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        stoppingToken.Register(() => Console.WriteLine($"{nameof(TeamCityQueueWaitScraper)} background task is starting."));
+        stoppingToken.Register(() => Console.WriteLine($"{GetType().Name} background task is starting."));
 
         while (!stoppingToken.IsCancellationRequested)
         {
