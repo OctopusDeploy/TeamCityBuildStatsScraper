@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using System.Text;
 using Microsoft.Extensions.Configuration;
 using Prometheus.Client;
+using Serilog;
 using TeamCitySharp;
 
 namespace TeamCityBuildStatsScraper.Scrapers
@@ -16,7 +16,8 @@ namespace TeamCityBuildStatsScraper.Scrapers
         readonly IConfiguration configuration;
         readonly HashSet<(string buildTypeId, string waitReason)> waitReasonList = new();
 
-        public TeamCityQueueLengthScraper(IMetricFactory metricFactory, IConfiguration configuration)
+        public TeamCityQueueLengthScraper(IMetricFactory metricFactory, IConfiguration configuration, ILogger logger)
+            : base(logger.ForContext("Scraper", nameof(TeamCityQueueLengthScraper)))
         {
             this.metricFactory = metricFactory;
             this.configuration = configuration;
@@ -30,17 +31,12 @@ namespace TeamCityBuildStatsScraper.Scrapers
 
             teamCityClient.ConnectWithAccessToken(teamCityToken);
 
-            var stopwatch = new Stopwatch();
-            stopwatch.Start();
-
             var queuedBuilds = teamCityClient.BuildQueue
                 .GetFields("count,build(id,waitReason,buildTypeId,queuedDate,statistics(property,value,name))")
                 .All()
                 // exclude builds with no wait reason - these are the ones that are 'starting shortly'
                 .Where(qb => qb.WaitReason != null)
                 .ToArray();
-
-            stopwatch.Stop();
 
             var queueStats = queuedBuilds
                 .GroupBy(qb => new { buildTypeId = qb.BuildTypeId, waitReason = Sanitize(qb.WaitReason) })
@@ -61,17 +57,10 @@ namespace TeamCityBuildStatsScraper.Scrapers
 
             var waitReasonsGauge = metricFactory.CreateGauge("queued_builds_with_reason", "Count of builds in the queue for each queue reason", "buildTypeId", "waitReason");
 
-            var consoleString = new StringBuilder();
-
-            consoleString.AppendLine($"Scrape complete at {DateTime.UtcNow.ToString(CultureInfo.InvariantCulture)}");
-            consoleString.AppendLine($"Completed scrape of TeamCity in {stopwatch.ElapsedMilliseconds} ms. Gauges generated were:");
-            consoleString.AppendLine("-------------------");
-            consoleString.AppendLine("Wait Reason | Count");
-
             foreach (var item in queueStats)
             {
                 waitReasonsGauge.WithLabels(item.buildTypeId, item.waitReason).Set(item.queuedBuildCount);
-                consoleString.AppendLine($"{item.waitReason} | {item.queuedBuildCount}");
+                Logger.Debug("Build Type {BuildTypeId}, Wait Reason {WaitReason}, Count {Count}", item.buildTypeId, item.waitReason, item.queuedBuildCount);
             }
 
             var absentWaitReasons = waitReasonList.Except(currentWaitReasons);
@@ -80,10 +69,8 @@ namespace TeamCityBuildStatsScraper.Scrapers
             {
                 // if not present, reset the gauge to zero
                 waitReasonsGauge.WithLabels(item.buildTypeId, item.waitReason).Reset();
-                consoleString.AppendLine($"{item} | 0");
+                Logger.Debug("Build Type {BuildTypeId}, Wait Reason {WaitReason}, Count {Count}", item.buildTypeId, item.waitReason, 0);
             }
-
-            Console.WriteLine(consoleString.ToString());
         }
 
         string Sanitize(string waitReason)

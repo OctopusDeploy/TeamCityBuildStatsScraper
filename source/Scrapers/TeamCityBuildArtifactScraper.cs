@@ -1,13 +1,8 @@
 using System;
-using System.Diagnostics;
-using System.Globalization;
 using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
 using Prometheus.Client;
+using Serilog;
 using TeamCitySharp;
 using TeamCitySharp.Locators;
 
@@ -18,7 +13,8 @@ namespace TeamCityBuildStatsScraper.Scrapers
         readonly IMetricFactory metricFactory;
         readonly IConfiguration configuration;
 
-        public TeamCityBuildArtifactScraper(IMetricFactory metricFactory, IConfiguration configuration)
+        public TeamCityBuildArtifactScraper(IMetricFactory metricFactory, IConfiguration configuration, ILogger logger)
+            : base(logger.ForContext("Scraper", nameof(TeamCityBuildArtifactScraper)))
         {
             this.metricFactory = metricFactory;
             this.configuration = configuration;
@@ -39,8 +35,6 @@ namespace TeamCityBuildStatsScraper.Scrapers
                 sinceDate: DateTime.UtcNow.AddMinutes(-180),
                 maxResults: 1000);
 
-            var stopwatch = new Stopwatch();
-            stopwatch.Start();
 
             var recentBuilds = teamCityClient.Builds
                 .GetFields("count,build(id,finishDate,startDate,buildTypeId,queuedDate,statistics(property,value,name))")
@@ -51,8 +45,6 @@ namespace TeamCityBuildStatsScraper.Scrapers
                 .Where(b => b.Statistics.Property.Exists(p => p.Name.Contains("dependenciesResolving")))
                 .Where(b => b.Statistics.Property.Exists(p => p.Name.Contains("artifactResolving:totalDownloaded")))
                 .ToArray();
-
-            stopwatch.Stop();
 
             var recentBuildStats = recentBuilds.Select(rb => new
                 {
@@ -78,23 +70,19 @@ namespace TeamCityBuildStatsScraper.Scrapers
             var pullSizeGauge = metricFactory.CreateGauge("build_artifact_pull_size", "Size of artifacts pulled into a build", "buildTypeId");
             var pullTimeGauge = metricFactory.CreateGauge("build_artifact_pull_time", "Time in ms for artifacts to be pulled into a build", "buildTypeId");
 
-            var consoleString = new StringBuilder();
-
-            consoleString.AppendLine($"Scrape complete at {DateTime.UtcNow.ToString(CultureInfo.InvariantCulture)}");
-            consoleString.AppendLine($"Completed scrape of TeamCity in {stopwatch.ElapsedMilliseconds} ms. Gauges generated were:");
-            consoleString.AppendLine("----------------------------------------------------------");
-            consoleString.AppendLine("Build Type | Push Size | Push Time | Pull Size | Pull Time");
-
             foreach (var item in recentBuildStats)
             {
                 pullSizeGauge.WithLabels(item.buildTypeId).Set(item.meanArtifactPullSize);
                 pullTimeGauge.WithLabels(item.buildTypeId).Set(item.meanArtifactPullTime);
                 publishSizeGauge.WithLabels(item.buildTypeId).Set(item.meanArtifactPublishSize);
                 publishTimeGauge.WithLabels(item.buildTypeId).Set(item.meanArtifactPublishTime);
-                consoleString.AppendLine($"{item.buildTypeId} | {item.meanArtifactPublishSize} | {item.meanArtifactPublishTime} | {item.meanArtifactPullSize} | {item.meanArtifactPullTime}");
+                Logger.Debug("Build Type {BuildTypeId}, Push Size {MeanArtifactPublishSize}, Push Time {MeanArtifactPublishTime}, Pull Size {MeanArtifactPullSize}, Pull Time {MeanArtifactPullTime}",
+                    item.buildTypeId,
+                    item.meanArtifactPublishSize,
+                    item.meanArtifactPublishTime,
+                    item.meanArtifactPullSize,
+                    item.meanArtifactPullTime);
             }
-
-            Console.WriteLine(consoleString.ToString());
         }
     }
 }

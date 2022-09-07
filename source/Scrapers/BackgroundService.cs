@@ -1,21 +1,26 @@
 using System;
+using System.Diagnostics;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
 using Polly;
 using Polly.Retry;
+using Serilog;
 
 namespace TeamCityBuildStatsScraper.Scrapers;
 
 //from https://docs.microsoft.com/en-us/dotnet/architecture/microservices/multi-container-microservice-net-applications/background-tasks-with-ihostedservice
 public abstract class BackgroundService : IHostedService, IDisposable
 {
+    protected readonly ILogger Logger;
     Task executingTask;
     readonly CancellationTokenSource stoppingCts = new();
     readonly RetryPolicy retryPolicy;
 
-    protected BackgroundService()
+    protected BackgroundService(ILogger logger)
     {
+        this.Logger = logger;
         retryPolicy = GetRetryPolicy();
     }
     
@@ -23,22 +28,30 @@ public abstract class BackgroundService : IHostedService, IDisposable
 
     async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        stoppingToken.Register(() => Console.WriteLine($"{GetType().Name} background task is starting."));
+        stoppingToken.Register(() => Logger.Information("{TaskName} background task is starting", GetType().Name));
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                retryPolicy.Execute(_ => Scrape(), stoppingToken);
+                retryPolicy.Execute(_ =>
+                {
+                    Logger.Debug("Beginning scrape for {TaskName}", GetType().Name);
+                    var stopwatch = new Stopwatch();
+                    stopwatch.Start();
+                    Scrape();
+                    stopwatch.Stop();
+                    Logger.Information("Scrape complete at {CompletionTime}, taking {Duration} ms", DateTime.UtcNow.ToString(CultureInfo.InvariantCulture),  stopwatch.ElapsedMilliseconds);
+                }, stoppingToken);
                 await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
             }
             catch (OperationCanceledException)
             {
-                Console.WriteLine($"Task cancellation detected in {nameof(TeamCityQueueWaitScraper)} background task - shutting down.");
+                Logger.Information("Task cancellation detected in {TaskName} background task - shutting down", GetType().Name);
             }
         }
 
-        Console.WriteLine($"{nameof(TeamCityQueueWaitScraper)} background task is stopping.");
+        Logger.Information("{TaskName} background task is stopping", GetType().Name);
     }
     
     public virtual Task StartAsync(CancellationToken cancellationToken)
