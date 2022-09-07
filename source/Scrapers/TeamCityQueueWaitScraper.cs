@@ -1,12 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Globalization;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Configuration;
 using Prometheus.Client;
+using Serilog;
 using TeamCitySharp;
 using TeamCitySharp.DomainEntities;
 
@@ -18,7 +16,8 @@ namespace TeamCityBuildStatsScraper.Scrapers
         readonly IConfiguration configuration;
         readonly HashSet<string> seenBuildTypes = new();
 
-        public TeamCityQueueWaitScraper(IMetricFactory metricFactory, IConfiguration configuration)
+        public TeamCityQueueWaitScraper(IMetricFactory metricFactory, IConfiguration configuration, ILogger logger)
+            : base(logger.ForContext("Scraper", nameof(TeamCityQueueWaitScraper)))
         {
             this.metricFactory = metricFactory;
             this.configuration = configuration;
@@ -32,17 +31,12 @@ namespace TeamCityBuildStatsScraper.Scrapers
 
             teamCityClient.ConnectWithAccessToken(teamCityToken);
 
-            var scrapeDuration = new Stopwatch();
-            scrapeDuration.Start();
-
             var queuedBuilds = GetFilteredQueuedBuilds(teamCityClient);
 
             var queueStats = GenerateQueueWaitStats(queuedBuilds);
 
-            scrapeDuration.Stop();
-
             CreateOrUpdateMetrics(queueStats);
-            LogActivity(queueStats, scrapeDuration.Elapsed);
+            LogActivity(queueStats);
         }
 
         void CreateOrUpdateMetrics(QueuedBuildStats[] queueStats)
@@ -84,19 +78,12 @@ namespace TeamCityBuildStatsScraper.Scrapers
             // metrics.WithLabels(queuedBuild.BuildType).Reset() here.
         }
 
-        void LogActivity(QueuedBuildStats[] queueStats, TimeSpan scrapeDuration)
+        void LogActivity(QueuedBuildStats[] queueStats)
         {
-            var consoleString = new StringBuilder();
-
-            consoleString.AppendLine($"Scrape complete at {DateTime.UtcNow.ToString(CultureInfo.InvariantCulture)}");
-            consoleString.AppendLine($"Completed scrape of queued build waiting time in {scrapeDuration.TotalMilliseconds} ms. Builds captured were:");
-            consoleString.AppendLine("-------------------------------------------------------------------------------------------");
-            consoleString.AppendLine("Build Type | Id | Wait Duration | Now | Queued Date-Time | Latest Dependency Finish Time | Wait Reason");
-
             foreach (var queuedBuild in queueStats)
             {
-                consoleString.AppendLine(
-                    $"{queuedBuild.BuildType} | {queuedBuild.Id} | {queuedBuild.TimeInQueue.TotalMilliseconds} | {DateTime.UtcNow} | {queuedBuild.QueuedTime} | {queuedBuild.LastDependencyFinishTime} | {queuedBuild.WaitReason}");
+                Logger.Debug("Build Type {BuildTypeId}, Build Id {BuildId}, Wait Duration {WaitDuration}, Now {DateTime},  Queued Date-Time {QueuedTime}, Latest Dependency Finish Time {LastDependencyFinishTime}, Wait Reason {WaitReason}",
+                    queuedBuild.BuildType,  queuedBuild.Id,  queuedBuild.TimeInQueue.TotalMilliseconds, DateTime.UtcNow,  queuedBuild.QueuedTime,  queuedBuild.LastDependencyFinishTime,  queuedBuild.WaitReason); 
             }
 
             var currentBuildTypes = queueStats.Select(x => x.BuildType).Distinct().ToArray();
@@ -105,10 +92,8 @@ namespace TeamCityBuildStatsScraper.Scrapers
 
             foreach (var item in absentBuildTypes)
             {
-                consoleString.AppendLine($"{item} | not observed | <n/a>");
+                Logger.Debug("Build Type {BuildTypeId} not observed", item);
             }
-
-            Console.WriteLine(consoleString.ToString());
         }
 
         static QueuedBuildStats[] GenerateQueueWaitStats(Build[] queuedBuilds)
