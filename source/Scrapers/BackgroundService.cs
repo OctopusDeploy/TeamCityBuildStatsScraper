@@ -36,7 +36,7 @@ public abstract class BackgroundService : IHostedService, IDisposable
             {
                 retryPolicy.Execute(_ =>
                 {
-                    Logger.Information("Beginning scrape for {TaskName}", GetType().Name);
+                    Logger.Debug("Beginning scrape for {TaskName}", GetType().Name);
                     var stopwatch = new Stopwatch();
                     stopwatch.Start();
                     Scrape();
@@ -51,7 +51,7 @@ public abstract class BackgroundService : IHostedService, IDisposable
             }
         }
 
-        Logger.Information("{TaskName} background task is stopping", nameof(TeamCityQueueWaitScraper));
+        Logger.Information("{TaskName} background task is stopping", GetType().Name);
     }
     
     public virtual Task StartAsync(CancellationToken cancellationToken)

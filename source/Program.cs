@@ -35,7 +35,7 @@ namespace TeamCityBuildStatsScraper
                 .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
                 .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
                 .Enrich.FromLogContext()
-                .Enrich.WithProperty("Environment", Environment.GetEnvironmentVariable("ASPNET_ENVIRONMENT") ?? "Production")
+                .Enrich.WithProperty("Environment", Environment.GetEnvironmentVariable("ASPNET_ENVIRONMENT") ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production")
                 .Enrich.WithProperty("ApplicationSet", "TeamCityBuildStatsScraper")
                 .Enrich.WithProperty("Application", "TeamCityBuildStatsScraper")
                 .Enrich.WithProperty("Version", appVersion)
