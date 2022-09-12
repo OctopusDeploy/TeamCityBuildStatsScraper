@@ -32,8 +32,8 @@ namespace TeamCityBuildStatsScraper.Scrapers
             teamCityClient.ConnectWithAccessToken(teamCityToken);
 
             var hungBuilds = teamCityClient.Builds
-                .GetFields("count,build(id,probablyHanging,buildTypeId)")
-                .ByBuildLocator(BuildLocator.WithDimensions(running: true), new List<string> { "hanging:true" })
+                .GetFields("count,build(id,probablyHanging,buildTypeId,composite)")
+                .ByBuildLocator(BuildLocator.WithDimensions(running: true), new List<string> { "hanging:true", "composite:false" })
                 .ToArray();
 
             var gauge = metricFactory.CreateGauge("probably_hanging_builds", "Count of running builds that appear to be hung", "buildTypeId");
