@@ -14,7 +14,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
     {
         readonly IMetricFactory metricFactory;
         readonly IConfiguration configuration;
-        readonly HashSet<string> seenBuildTypes = new();
+        readonly HashSet<(string, string)> seenBuilds = new();
 
         public TeamCityBuildScraper(IMetricFactory metricFactory, IConfiguration configuration, ILogger logger)
             : base(logger.ForContext("Scraper", nameof(TeamCityBuildScraper)))
@@ -32,27 +32,27 @@ namespace TeamCityBuildStatsScraper.Scrapers
             teamCityClient.ConnectWithAccessToken(teamCityToken);
 
             var hungBuilds = teamCityClient.Builds
-                .GetFields("count,build(id,probablyHanging,buildTypeId)")
-                .ByBuildLocator(BuildLocator.WithDimensions(running: true), new List<string> { "hanging:true" })
+                .GetFields("count,build(id,buildTypeId)")
+                .ByBuildLocator(BuildLocator.WithDimensions(running: true), new List<string> { "hanging:true", "composite:false" })
                 .ToArray();
 
-            var gauge = metricFactory.CreateGauge("probably_hanging_builds", "Count of running builds that appear to be hung", "buildTypeId");
+            var gauge = metricFactory.CreateGauge("probably_hanging_builds", "Running builds that appear to be hung", labelNames: new []{"buildTypeId", "buildId"});
 
-            foreach (var build in hungBuilds.GroupBy(x => x.BuildTypeId))
+            foreach (var build in hungBuilds)
             {
-                gauge.WithLabels(build.Key).Set(build.Count());
-                Logger.Debug("Build Type {BuildTypeId}, Count {Count}", build.Key, build.Count());
+                gauge.WithLabels(build.BuildTypeId, build.Id).Set(1);
+                Logger.Debug("Build Type {BuildTypeId}, build ID {BuildId} has hung", build.BuildTypeId, build.Id);
             }
 
-            var currentBuildTypes = hungBuilds.Select(x => x.BuildTypeId).Distinct().ToArray();
-            seenBuildTypes.UnionWith(currentBuildTypes);
-            var absentBuildTypes = seenBuildTypes.Except(currentBuildTypes);
+            var currentBuilds = hungBuilds.Select(x => (x.BuildTypeId, x.Id)).ToArray();
+            seenBuilds.UnionWith(currentBuilds);
+            var absentBuilds = seenBuilds.Except(currentBuilds);
 
-            foreach (var item in absentBuildTypes)
+            foreach (var (buildType, buildId) in absentBuilds)
             {
                 // if not present, reset the gauge to zero
-                gauge.WithLabels(item).Reset();
-                Logger.Debug("Build Type {BuildTypeId}, Count {Count}", item, 0);
+                gauge.WithLabels(buildType, buildId).Reset();
+                Logger.Debug("Build Type {BuildTypeId}, build ID {Id} no longer hung", buildType, buildId);
             }
         }
     }
