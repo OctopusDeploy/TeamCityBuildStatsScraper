@@ -46,9 +46,9 @@ namespace TeamCityBuildStatsScraper.Scrapers
 
             var currentBuilds = hungBuilds.Select(x => (x.BuildTypeId, x.Id)).ToArray();
             seenBuilds.UnionWith(currentBuilds);
-            var absentBuildTypes = seenBuilds.Except(currentBuilds);
+            var absentBuilds = seenBuilds.Except(currentBuilds);
 
-            foreach (var (buildType, buildId) in absentBuildTypes)
+            foreach (var (buildType, buildId) in absentBuilds)
             {
                 // if not present, reset the gauge to zero
                 gauge.WithLabels(buildType, buildId).Reset();
