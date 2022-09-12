@@ -32,7 +32,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             teamCityClient.ConnectWithAccessToken(teamCityToken);
 
             var hungBuilds = teamCityClient.Builds
-                .GetFields("count,build(id,probablyHanging,buildTypeId,composite)")
+                .GetFields("count,build(id,buildTypeId)")
                 .ByBuildLocator(BuildLocator.WithDimensions(running: true), new List<string> { "hanging:true", "composite:false" })
                 .ToArray();
 
