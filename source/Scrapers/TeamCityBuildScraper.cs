@@ -40,7 +40,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
 
             foreach (var build in hungBuilds)
             {
-                gauge.WithLabels(new []{build.BuildTypeId, build.Id}).Set(1);
+                gauge.WithLabels(build.BuildTypeId, build.Id).Set(1);
                 Logger.Debug("Build Type {BuildTypeId}, build ID {BuildId} has hung", build.BuildTypeId, build.Id);
             }
 
@@ -51,7 +51,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             foreach (var (buildType, buildId) in absentBuildTypes)
             {
                 // if not present, reset the gauge to zero
-                gauge.WithLabels(new []{buildType, buildId}).Reset();
+                gauge.WithLabels(buildType, buildId).Reset();
                 Logger.Debug("Build Type {BuildTypeId}, build ID {Id} no longer hung", buildType, buildId);
             }
         }
