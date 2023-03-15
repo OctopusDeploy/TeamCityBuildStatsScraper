@@ -22,6 +22,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             this.metricFactory = metricFactory;
             this.configuration = configuration;
         }
+        protected override TimeSpan DelayBetweenScrapes => TimeSpan.FromSeconds(15);
 
         protected override void Scrape()
         {

@@ -30,7 +30,9 @@ Optionally, you can also set
 
 ## Metrics collected
 
-### Build Artifact Movements
+Every 15 minutes, the app collects:
+
+- `muted_tests` - number of muted tests per build type, _currently filtered only to the Octopus Server project_.
 
 In a rolling three-hour window, the app collects the below [gauges](https://prometheus.io/docs/concepts/metric_types/#gauge) every five minutes for each build type that ran at least once in the window.
 
@@ -39,7 +41,7 @@ In a rolling three-hour window, the app collects the below [gauges](https://prom
 - `build_artifact_push_time` - mean time (in milliseconds) spent pushing build artifacts from the agent
 - `build_artifact_pull_time` - mean time (in milliseconds) spent pulling build artifacts into the agent
 
-Every minute, the app collects this:
+Every minute, the app collects:
 
 - `probably_hanging_builds` - number of builds that are probably hanging, per build type
 - `queued_builds_with_reason` - total number of builds queued per wait reason

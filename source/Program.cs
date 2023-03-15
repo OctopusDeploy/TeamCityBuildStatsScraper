@@ -70,6 +70,7 @@ namespace TeamCityBuildStatsScraper
                         services.AddHostedService<TeamCityBuildScraper>();
                         services.AddHostedService<TeamCityBuildArtifactScraper>();
                         services.AddHostedService<TeamCityQueueWaitScraper>();
+                        services.AddHostedService<TeamCityMutedTestsScraper>();
                     })
                     .UseConsoleLifetime()
                     .Build();

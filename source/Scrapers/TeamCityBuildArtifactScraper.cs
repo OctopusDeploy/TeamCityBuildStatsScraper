@@ -20,6 +20,8 @@ namespace TeamCityBuildStatsScraper.Scrapers
             this.configuration = configuration;
         }
 
+        protected override TimeSpan DelayBetweenScrapes => TimeSpan.FromMinutes(5);
+
         protected override void Scrape()
         {
             var teamCityToken = configuration.GetValue<string>("TEAMCITY_TOKEN");
@@ -84,5 +86,6 @@ namespace TeamCityBuildStatsScraper.Scrapers
                     item.meanArtifactPullTime);
             }
         }
+
     }
 }

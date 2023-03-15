@@ -43,7 +43,7 @@ public abstract class BackgroundService : IHostedService, IDisposable
                     stopwatch.Stop();
                     Logger.Information("Scrape complete at {CompletionTime}, taking {Duration} ms", DateTime.UtcNow.ToString(CultureInfo.InvariantCulture),  stopwatch.ElapsedMilliseconds);
                 }, stoppingToken);
-                await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
+                await Task.Delay(DelayBetweenScrapes, stoppingToken);
             }
             catch (OperationCanceledException)
             {
@@ -53,7 +53,9 @@ public abstract class BackgroundService : IHostedService, IDisposable
 
         Logger.Information("{TaskName} background task is stopping", GetType().Name);
     }
-    
+
+    protected abstract TimeSpan DelayBetweenScrapes { get; }
+
     public virtual Task StartAsync(CancellationToken cancellationToken)
     {
         // Store the task we're executing
