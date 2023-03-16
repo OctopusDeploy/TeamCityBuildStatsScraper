@@ -33,21 +33,20 @@ class TeamCityMutedTestsScraper : BackgroundService
 
         teamCityClient.ConnectWithAccessToken(teamCityToken);
         
-        //https://build.octopushq.com/app/rest/tests?locator=currentlyMuted:true,affectedProject:OctopusDeploy_OctopusServer&fields=count
-
         //Unfortunately, we dont seem to be able to use the client for this call,
         //so for now, I'm reaching deep into it's guts to get the field I need. Ick.
         //We should raise a PR (though there hasn't been a release for nearly 12 months)
         var callerField = typeof(TeamCityClient).GetField("m_caller", BindingFlags.Instance | BindingFlags.NonPublic)!;
         var caller = (ITeamCityCaller)callerField.GetValue(teamCityClient) ?? throw new ApplicationException("Unable to get m_caller field");
 
-        var hungBuilds = caller.Get<TestOccurrences>("/tests?locator=currentlyMuted:true,affectedProject:OctopusDeploy_OctopusServer&fields=count");
+        const string projectId = "OctopusDeploy_OctopusServer";
+        var hungBuilds = caller.Get<TestOccurrences>($"/tests?locator=currentlyMuted:true,affectedProject:{projectId}&fields=count");
         
         metricFactory
-            .CreateGauge("muted_tests", "Count of muted tests", "buildTypeId")
-            .WithLabels("OctopusDeploy_OctopusServer")
+            .CreateGauge("muted_tests", "Count of muted tests", "projectId")
+            .WithLabels(projectId)
             .Set(hungBuilds.Count);
         
-        Logger.Debug("Project {BuildTypeId} has {Count} muted tests", "OctopusDeploy_OctopusServer", hungBuilds.Count);
+        Logger.Debug("Project {ProjectId} has {Count} muted tests", projectId, hungBuilds.Count);
     }
 }
