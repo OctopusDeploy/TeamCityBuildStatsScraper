@@ -20,7 +20,7 @@ public abstract class BackgroundService : IHostedService, IDisposable
 
     protected BackgroundService(ILogger logger)
     {
-        this.Logger = logger;
+        Logger = logger;
         retryPolicy = GetRetryPolicy();
     }
     
@@ -96,15 +96,15 @@ public abstract class BackgroundService : IHostedService, IDisposable
     
     static RetryPolicy GetRetryPolicy()
     {
-        const int retryCount = 10;
         var policy = Policy
             .Handle<Exception>()
-            .WaitAndRetryForever(retryNumber => TimeSpan.FromSeconds(30),
+            .WaitAndRetryForever(_ => TimeSpan.FromSeconds(30),
                 (exception, attempt, waitTime) =>
-                    Console.Write($"Exception {exception.Message} while trying to scrape TeamCity stats. Waiting {0} before next retry. Retry attempt {1} of {2} attempts",
+                    Log.Error(exception,
+                        "Exception {Exception} while trying to scrape TeamCity stats. Waiting {WaitTime} before next retry. Retry attempt {Attempt}",
+                        exception.Message,
                         waitTime,
-                        attempt,
-                        retryCount)
+                        attempt)
             );
         return policy;
     }
