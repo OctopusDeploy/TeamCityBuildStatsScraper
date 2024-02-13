@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Prometheus.Client;
 using Serilog;
@@ -24,8 +26,10 @@ namespace TeamCityBuildStatsScraper.Scrapers
         }
         protected override TimeSpan DelayBetweenScrapes => TimeSpan.FromSeconds(15);
 
-        protected override void Scrape()
+        protected override async Task Scrape(CancellationToken stoppingToken)
         {
+            await Task.CompletedTask;
+
             var teamCityToken = configuration.GetValue<string>("TEAMCITY_TOKEN");
             var teamCityUrl = configuration.GetValue<string>("BUILD_SERVER_URL");
             var teamCityClient = new TeamCityClient(teamCityUrl, true);
