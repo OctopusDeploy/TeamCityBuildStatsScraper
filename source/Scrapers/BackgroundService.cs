@@ -16,7 +16,7 @@ public abstract class BackgroundService : IHostedService, IDisposable
     protected readonly ILogger Logger;
     Task executingTask;
     readonly CancellationTokenSource stoppingCts = new();
-    readonly RetryPolicy retryPolicy;
+    readonly AsyncRetryPolicy retryPolicy;
 
     protected BackgroundService(ILogger logger)
     {
@@ -24,7 +24,7 @@ public abstract class BackgroundService : IHostedService, IDisposable
         retryPolicy = GetRetryPolicy();
     }
     
-    protected abstract void Scrape();
+    protected abstract Task Scrape(CancellationToken stoppingToken);
 
     async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -34,12 +34,12 @@ public abstract class BackgroundService : IHostedService, IDisposable
         {
             try
             {
-                retryPolicy.Execute(_ =>
+                await retryPolicy.ExecuteAsync(async _ =>
                 {
                     Logger.Debug("Beginning scrape for {TaskName}", GetType().Name);
                     var stopwatch = new Stopwatch();
                     stopwatch.Start();
-                    Scrape();
+                    await Scrape(stoppingToken);
                     stopwatch.Stop();
                     Logger.Information("Scrape complete at {CompletionTime}, taking {Duration} ms", DateTime.UtcNow.ToString(CultureInfo.InvariantCulture),  stopwatch.ElapsedMilliseconds);
                 }, stoppingToken);
@@ -94,11 +94,11 @@ public abstract class BackgroundService : IHostedService, IDisposable
         GC.SuppressFinalize(this);
     }
     
-    static RetryPolicy GetRetryPolicy()
+    static AsyncRetryPolicy GetRetryPolicy()
     {
         var policy = Policy
             .Handle<Exception>()
-            .WaitAndRetryForever(_ => TimeSpan.FromSeconds(30),
+            .WaitAndRetryForeverAsync(_ => TimeSpan.FromSeconds(30),
                 (exception, attempt, waitTime) =>
                     Log.Error(exception,
                         "Exception {Exception} while trying to scrape TeamCity stats. Waiting {WaitTime} before next retry. Retry attempt {Attempt}",
