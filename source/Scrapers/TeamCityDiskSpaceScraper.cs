@@ -6,8 +6,6 @@ using Azure.Identity;
 using Azure.ResourceManager;
 using Azure.ResourceManager.Resources;
 using Azure.ResourceManager.Storage;
-using Azure.Storage;
-using Azure.Storage.Files.Shares;
 using Microsoft.Extensions.Configuration;
 using Prometheus.Client;
 using Serilog;
@@ -59,7 +57,6 @@ namespace TeamCityBuildStatsScraper.Scrapers
 
             try
             {
-                
                 var resourceGroupName = configuration.GetValue<string>("AZURE_FILE_SHARE_RESOURCE_GROUP_NAME");
                 var storageAccountName = configuration.GetValue<string>("AZURE_FILE_SHARE_STORAGE_ACCOUNT_NAME");
                 var subscriptionId = configuration.GetValue<string>("AZURE_FILE_SHARE_SUBSCRIPTION_ID");
