@@ -63,9 +63,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
                 var shareName = configuration.GetValue<string>("AZURE_FILE_SHARE_STORAGE_SHARE_NAME");
 
                 var client = new ArmClient(new DefaultAzureCredential());
-                var subscription = await client.GetSubscriptions().GetAsync(subscriptionId, cancellationToken);
-                var resourceGroups = subscription.Value.GetResourceGroups();
-                ResourceGroupResource resourceGroup = await resourceGroups.GetAsync(resourceGroupName, cancellationToken);
+                ResourceGroupResource resourceGroup = client.GetResourceGroupResource(ResourceGroupResource.CreateResourceIdentifier(subscriptionId, resourceGroupName));
                 StorageAccountResource storageAccount = await resourceGroup.GetStorageAccountAsync(storageAccountName, cancellationToken: cancellationToken);
 
                 var fileService = storageAccount.GetFileService();
