@@ -4,15 +4,16 @@ This app scrapes a TeamCity instance for some aggregated statistics and exposes 
 
 ## Configuration
 
-Two environment variables need to be set:
+The following environment variables need to be set:
 
 - `BUILD_SERVER_URL` - The URL (or IP address) of your TeamCity instance, without `http(s)://` or trailing `/` - e.g. `buildserver.example.com` and not `https://buildserver.example.com/`
 - `TEAMCITY_TOKEN` - An [authentication token](https://www.jetbrains.com/help/teamcity/managing-your-user-account.html#Managing+Access+Tokens) for your TeamCity instance, with enough access to read build information.
+- `USE_SSL` - Whether to use SSL for connecting to TeamCity.
 
 Optionally, you can also set
 
 - `SEQ_URL` - The URL (with http/https prefix) to a seq server to log messages to
-- `SEQ_API_KEY` - If your seq server requires an api key, you can specify it here. This also allows you to modify the logging level from seq. 
+- `SEQ_API_KEY` - If your seq server requires an api key, you can specify it here. This also allows you to modify the logging level from seq.
 
 ## How to run
 
