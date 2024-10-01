@@ -32,7 +32,8 @@ namespace TeamCityBuildStatsScraper.Scrapers
 
             var teamCityToken = configuration.GetValue<string>("TEAMCITY_TOKEN");
             var teamCityUrl = configuration.GetValue<string>("BUILD_SERVER_URL");
-            var teamCityClient = new TeamCityClient(teamCityUrl, true);
+            var useSSL = configuration.GetValue<bool>("USE_SSL");
+            var teamCityClient = new TeamCityClient(teamCityUrl, useSSL);
 
             teamCityClient.ConnectWithAccessToken(teamCityToken);
 
@@ -59,7 +60,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
              * repeated observation of a build that is now waiting a long time will shift the P90 and P99 values relatively quickly. If we find that
              * this dynamic is happening too fast, the first thing to try should be to *increase* the scrape interval above in StartAsync() so that
              * frequent scraping of long-waiting builds doesn't skew the data higher as quickly.
-             * 
+             *
              * The output on the server looks a bit like this:
              *
              * queued_build_wait_times_by_type{buildType="OctopusDeploy_OctopusServer_Build_BuildPortal",quantile="0.5"} 2874.183
@@ -78,7 +79,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             }
 
             // In other scrapers we track previously-observed build types in order to reset their gauges. With a Summary, the Prometheus library
-            // needs to retain a small history of previous observations in order to calculate the P-values. There is a library default of 10 minutes 
+            // needs to retain a small history of previous observations in order to calculate the P-values. There is a library default of 10 minutes
             // that will age out data so that memory usage doesn't grow without bound. This means that unlike the other scrapers, we don't need a
             // metrics.WithLabels(queuedBuild.BuildType).Reset() here.
         }
@@ -88,7 +89,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             foreach (var queuedBuild in queueStats)
             {
                 Logger.Debug("Build Type {BuildTypeId}, Build Id {BuildId}, Wait Duration {WaitDuration}, Now {DateTime},  Queued Date-Time {QueuedTime}, Latest Dependency Finish Time {LastDependencyFinishTime}, Wait Reason {WaitReason}",
-                    queuedBuild.BuildType,  queuedBuild.Id,  queuedBuild.TimeInQueue.TotalMilliseconds, DateTime.UtcNow,  queuedBuild.QueuedTime,  queuedBuild.LastDependencyFinishTime,  queuedBuild.WaitReason); 
+                    queuedBuild.BuildType,  queuedBuild.Id,  queuedBuild.TimeInQueue.TotalMilliseconds, DateTime.UtcNow,  queuedBuild.QueuedTime,  queuedBuild.LastDependencyFinishTime,  queuedBuild.WaitReason);
             }
 
             var currentBuildTypes = queueStats.Select(x => x.BuildType).Distinct().ToArray();
@@ -127,7 +128,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
         static Build[] GetFilteredQueuedBuilds(TeamCityClient teamCityClient)
         {
             var branchWaitRegex = new Regex("branch .+ is already building", RegexOptions.IgnoreCase);
-            
+
             return teamCityClient.BuildQueue
                 .GetFields(
                     "count,build(id,waitReason,buildTypeId,queuedDate,snapshot-dependencies(count,build(state,status,finishDate)),artifact-dependencies(count,build(state,status,finishDate)))")

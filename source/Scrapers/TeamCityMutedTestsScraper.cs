@@ -33,10 +33,11 @@ class TeamCityMutedTestsScraper : BackgroundService
 
         var teamCityToken = configuration.GetValue<string>("TEAMCITY_TOKEN");
         var teamCityUrl = configuration.GetValue<string>("BUILD_SERVER_URL");
-        var teamCityClient = new TeamCityClient(teamCityUrl, true);
+        var useSSL = configuration.GetValue<bool>("USE_SSL");
+        var teamCityClient = new TeamCityClient(teamCityUrl, useSSL);
 
         teamCityClient.ConnectWithAccessToken(teamCityToken);
-        
+
         //Unfortunately, we dont seem to be able to use the client for this call,
         //so for now, I'm reaching deep into it's guts to get the field I need. Ick.
         //We should raise a PR (though there hasn't been a release for nearly 12 months)
@@ -45,12 +46,12 @@ class TeamCityMutedTestsScraper : BackgroundService
 
         const string projectId = "OctopusDeploy_OctopusServer";
         var hungBuilds = caller.Get<TestOccurrences>($"/tests?locator=currentlyMuted:true,affectedProject:{projectId}&fields=count");
-        
+
         metricFactory
             .CreateGauge("muted_tests", "Count of muted tests", "projectId")
             .WithLabels(projectId)
             .Set(hungBuilds.Count);
-        
+
         Logger.Debug("Project {ProjectId} has {Count} muted tests", projectId, hungBuilds.Count);
     }
 }
