@@ -30,7 +30,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
 
             var teamCityToken = configuration.GetValue<string>("TEAMCITY_TOKEN");
             var teamCityUrl = configuration.GetValue<string>("BUILD_SERVER_URL");
-            bool useSSL = configuration.GetValue<bool>("USE_SSL");
+            var useSSL = configuration.GetValue<bool>("USE_SSL");
             var teamCityClient = new TeamCityClient(teamCityUrl, useSSL);
 
             teamCityClient.ConnectWithAccessToken(teamCityToken);
