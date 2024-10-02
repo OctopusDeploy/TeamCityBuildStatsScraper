@@ -27,10 +27,11 @@ namespace TeamCityBuildStatsScraper.Scrapers
         protected override async Task Scrape(CancellationToken stoppingToken)
         {
             await Task.CompletedTask;
-            
+
             var teamCityToken = configuration.GetValue<string>("TEAMCITY_TOKEN");
             var teamCityUrl = configuration.GetValue<string>("BUILD_SERVER_URL");
-            var teamCityClient = new TeamCityClient(teamCityUrl, true);
+            var useSSL = configuration.GetValue<bool>("USE_SSL");
+            var teamCityClient = new TeamCityClient(teamCityUrl, useSSL);
 
             teamCityClient.ConnectWithAccessToken(teamCityToken);
 
