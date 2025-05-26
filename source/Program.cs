@@ -61,7 +61,7 @@ namespace TeamCityBuildStatsScraper
                         services.AddSingleton<IMetricServer>(sp => new MetricServer(
                             new MetricServerOptions
                             {
-                                CollectorRegistryInstance = sp.GetRequiredService<ICollectorRegistry>(),
+                                CollectorRegistry = sp.GetRequiredService<ICollectorRegistry>(),
                                 Host = "0.0.0.0",
                                 Port = 9090,
                                 UseDefaultCollectors = false
