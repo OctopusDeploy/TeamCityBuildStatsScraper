@@ -17,6 +17,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
         readonly IMetricFactory metricFactory;
         readonly IConfiguration configuration;
         readonly HashSet<(string buildTypeId, string waitReason)> waitReasonList = new();
+        readonly HashSet<(string buildTypeId, string buildId)> seenBuildsNoAgents = new();
 
         public TeamCityQueueLengthScraper(IMetricFactory metricFactory, IConfiguration configuration, ILogger logger)
             : base(logger.ForContext("Scraper", nameof(TeamCityQueueLengthScraper)))
@@ -38,7 +39,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             teamCityClient.ConnectWithAccessToken(teamCityToken);
 
             var queuedBuilds = teamCityClient.BuildQueue
-                .GetFields("count,build(id,waitReason,buildTypeId,queuedDate,statistics(property,value,name))")
+                .GetFields("count,build(id,waitReason,buildTypeId,queuedDate,statistics(property,value,name),compatibleAgents(count,agent(id)))")
                 .All()
                 // exclude builds with no wait reason - these are the ones that are 'starting shortly'
                 .Where(qb => qb.WaitReason != null)
@@ -76,6 +77,31 @@ namespace TeamCityBuildStatsScraper.Scrapers
                 // if not present, reset the gauge to zero
                 waitReasonsGauge.WithLabels(item.buildTypeId, item.waitReason).Reset();
                 Logger.Debug("Build Type {BuildTypeId}, Wait Reason {WaitReason}, Count {Count}", item.buildTypeId, item.waitReason, 0);
+            }
+
+            // Track builds with no compatible agents
+            var buildsNoCompatibleAgents = queuedBuilds
+                .Where(qb => qb.WaitReason == "There are no idle compatible agents which can run this build")
+                .Where(qb => qb.CompatibleAgents?.Agent == null || qb.CompatibleAgents.Agent.Count == 0)
+                .ToArray();
+
+            var noAgentsGauge = metricFactory.CreateGauge("queued_builds_no_compatible_agents", "Queued builds waiting with no compatible agents available", "buildTypeId", "buildId");
+
+            foreach (var build in buildsNoCompatibleAgents)
+            {
+                noAgentsGauge.WithLabels(build.BuildTypeId, build.Id).Set(1);
+                Logger.Debug("Build Type {BuildTypeId}, build ID {BuildId} has no compatible agents", build.BuildTypeId, build.Id);
+            }
+
+            var currentBuildsNoAgents = buildsNoCompatibleAgents.Select(b => (b.BuildTypeId, b.Id)).ToArray();
+            seenBuildsNoAgents.UnionWith(currentBuildsNoAgents);
+            var absentBuildsNoAgents = seenBuildsNoAgents.Except(currentBuildsNoAgents);
+
+            foreach (var (buildTypeId, buildId) in absentBuildsNoAgents)
+            {
+                // if not present, reset the gauge to zero
+                noAgentsGauge.WithLabels(buildTypeId, buildId).Reset();
+                Logger.Debug("Build Type {BuildTypeId}, build ID {BuildId} no longer waiting with no compatible agents", buildTypeId, buildId);
             }
         }
 
