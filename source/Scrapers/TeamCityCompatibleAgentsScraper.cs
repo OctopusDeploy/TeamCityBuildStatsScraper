@@ -63,7 +63,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
 
             foreach (var (buildTypeId, buildId, queuedDateTime) in absentBuildsNoAgents)
             {
-                noAgentsGauge.RemoveLabeled(buildTypeId, buildId, queuedDateTime);
+                noAgentsGauge.RemoveLabelled(buildTypeId, buildId, queuedDateTime);
                 Logger.Debug("Build Type {BuildTypeId}, build ID {BuildId} queued at {QueuedDateTime} no longer waiting with no compatible agents", buildTypeId, buildId, queuedDateTime);
             }
         }
