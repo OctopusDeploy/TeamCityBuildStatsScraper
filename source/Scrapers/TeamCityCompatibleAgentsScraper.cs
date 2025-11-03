@@ -14,7 +14,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
     {
         readonly IMetricFactory metricFactory;
         readonly IConfiguration configuration;
-        readonly HashSet<(string buildTypeId, string buildId)> seenBuildsNoAgents = new();
+        readonly HashSet<(string buildTypeId, string buildId, string queuedDateTime)> seenBuildsNoAgents = new();
 
         public TeamCityCompatibleAgentsScraper(IMetricFactory metricFactory, IConfiguration configuration, ILogger logger)
             : base(logger.ForContext("Scraper", nameof(TeamCityCompatibleAgentsScraper)))
@@ -37,7 +37,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             teamCityClient.ConnectWithAccessToken(teamCityToken);
 
             var queuedBuilds = teamCityClient.BuildQueue
-                .GetFields("count,build(id,waitReason,buildTypeId,queuedDate,statistics(property,value,name),compatibleAgents(count,agent(id)))")
+                .GetFields("count,build(id,waitReason,buildTypeId,queuedDate,compatibleAgents(count,agent(id)))")
                 .All()
                 // exclude builds with no wait reason - these are the ones that are 'starting shortly'
                 .Where(qb => qb.WaitReason != null)
@@ -57,13 +57,14 @@ namespace TeamCityBuildStatsScraper.Scrapers
                 Logger.Debug("Build Type {BuildTypeId}, build ID {BuildId} has no compatible agents, queued at {QueuedDateTime}", build.BuildTypeId, build.Id, build.QueuedDate);
             }
 
-            var currentBuildsNoAgents = buildsNoCompatibleAgents.Select(b => (b.BuildTypeId, b.Id)).ToArray();
+            var currentBuildsNoAgents = buildsNoCompatibleAgents.Select(b => (b.BuildTypeId, b.Id, b.QueuedDate.ToString("yyyy-MM-ddTHH:mm:ssZ"))).ToArray();
             seenBuildsNoAgents.UnionWith(currentBuildsNoAgents);
             var absentBuildsNoAgents = seenBuildsNoAgents.Except(currentBuildsNoAgents);
 
-            foreach (var (buildTypeId, buildId) in absentBuildsNoAgents)
+            foreach (var (buildTypeId, buildId, queuedDateTime) in absentBuildsNoAgents)
             {
-                Logger.Debug("Build Type {BuildTypeId}, build ID {BuildId} no longer waiting with no compatible agents", buildTypeId, buildId);
+                noAgentsGauge.RemoveLabeled(buildTypeId, buildId, queuedDateTime);
+                Logger.Debug("Build Type {BuildTypeId}, build ID {BuildId} queued at {QueuedDateTime} no longer waiting with no compatible agents", buildTypeId, buildId, queuedDateTime);
             }
         }
     }
