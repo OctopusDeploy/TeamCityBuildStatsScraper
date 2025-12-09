@@ -57,8 +57,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             teamCityClient.ConnectWithAccessToken(teamCityToken);
 
             // only look at builds that have been queued for 30 minutes
-            var thirtyMinutesAgo = DateTime.UtcNow.AddMinutes(-1);
-            Logger.Debug("DEBUG: Current time: {Now}, Threshold time (30 min ago): {Threshold}", DateTime.UtcNow, thirtyMinutesAgo);
+            var thirtyMinutesAgo = DateTime.UtcNow.AddMinutes(-30);
             var queuedBuilds = teamCityClient.BuildQueue
                 .GetFields("count,build(id,waitReason,buildTypeId,queuedDate,compatibleAgents(count,agent(id)))")
                 .All()
@@ -67,17 +66,12 @@ namespace TeamCityBuildStatsScraper.Scrapers
                 .Where(qb => qb.QueuedDate <= thirtyMinutesAgo)
                 .ToArray();
 
-            Logger.Debug("DEBUG: Found {Count} queued builds with wait reasons", queuedBuilds.Length);
-
             var noAgentsGauge = metricFactory.CreateGauge("queued_builds_no_compatible_agents", "Queued builds waiting with no compatible agents available", "buildTypeId", "buildId", "queuedDateTime");
 
             var buildsNoCompatibleAgents = new List<(string buildTypeId, string buildId, string queuedDateTime)>();
 
             foreach (var build in queuedBuilds)
             {
-                Logger.Debug("DEBUG: Processing build {BuildId} (Type: {BuildTypeId}), Wait Reason: {WaitReason}, Queued: {QueuedDate}",
-                    build.Id, build.BuildTypeId, build.WaitReason, build.QueuedDate);
-
                 // Fetch queuedWaitReasons from TeamCity API
                 QueuedWaitReasonsResponse waitReasonsResponse = null;
                 try
@@ -89,39 +83,19 @@ namespace TeamCityBuildStatsScraper.Scrapers
                     Logger.Warning(ex, "Failed to fetch queuedWaitReasons for build {BuildId}", build.Id);
                 }
 
-                // Log all properties in queuedWaitReasons if available
-                if (waitReasonsResponse?.QueuedWaitReasons?.Property != null)
-                {
-                    Logger.Debug("DEBUG: Build {BuildId} has {Count} wait reason properties", build.Id, waitReasonsResponse.QueuedWaitReasons.Property.Count);
-                    foreach (var prop in waitReasonsResponse.QueuedWaitReasons.Property)
-                    {
-                        Logger.Debug("DEBUG: Build {BuildId} wait reason property: Name='{Name}', Value='{Value}'",
-                            build.Id, prop.Name, prop.Value);
-                    }
-                }
-                else
-                {
-                    Logger.Debug("DEBUG: Build {BuildId} has no QueuedWaitReasons.Property", build.Id);
-                }
-
                 // Check if this build has the "no compatible agents" wait reason
                 var noAgentsWaitReason = waitReasonsResponse?.QueuedWaitReasons?.Property
                     ?.FirstOrDefault(p => p.Name == "There are no idle compatible agents which can run this build");
 
                 if (noAgentsWaitReason != null && !string.IsNullOrEmpty(noAgentsWaitReason.Value))
                 {
-                    Logger.Debug("DEBUG: Build {BuildId} found matching wait reason, value: {Value}", build.Id, noAgentsWaitReason.Value);
-
                     // Parse the wait time in milliseconds and convert to minutes
                     if (long.TryParse(noAgentsWaitReason.Value, out var milliseconds))
                     {
                         var waitTimeMinutes = Math.Round(milliseconds / (60.0 * 1000.0));
 
-                        Logger.Debug("DEBUG: Build Type {BuildTypeId}, build ID {BuildId} has no compatible agents wait reason, waiting for {WaitTimeMinutes} minutes (parsed from {Milliseconds}ms)",
-                            build.BuildTypeId, build.Id, waitTimeMinutes, milliseconds);
-
                         // Only track builds that have been waiting for more than 30 minutes
-                        if (waitTimeMinutes > 3)
+                        if (waitTimeMinutes > 30)
                         {
                             buildsNoCompatibleAgents.Add((build.BuildTypeId, build.Id, build.QueuedDate.ToString("yyyy-MM-ddTHH:mm:ssZ")));
 
@@ -129,29 +103,13 @@ namespace TeamCityBuildStatsScraper.Scrapers
                             Logger.Information("ALERT: Build Type {BuildTypeId}, build ID {BuildId} has been waiting with no compatible agents for {WaitTimeMinutes} minutes (threshold exceeded)",
                                 build.BuildTypeId, build.Id, waitTimeMinutes);
                         }
-                        else
-                        {
-                            Logger.Debug("DEBUG: Build {BuildId} wait time {WaitTimeMinutes} minutes is under 30 minute threshold", build.Id, waitTimeMinutes);
-                        }
                     }
-                    else
-                    {
-                        Logger.Debug("DEBUG: Build {BuildId} failed to parse wait time value: {Value}", build.Id, noAgentsWaitReason.Value);
-                    }
-                }
-                else
-                {
-                    Logger.Debug("DEBUG: Build {BuildId} does not have 'no compatible agents' wait reason", build.Id);
                 }
             }
-
-            Logger.Debug("DEBUG: Total builds exceeding 30 minute threshold: {Count}", buildsNoCompatibleAgents.Count);
 
             var currentBuildsNoAgents = buildsNoCompatibleAgents.ToArray();
             seenBuildsNoAgents.UnionWith(currentBuildsNoAgents);
             var absentBuildsNoAgents = seenBuildsNoAgents.Except(currentBuildsNoAgents);
-
-            Logger.Debug("DEBUG: Builds no longer in alert state: {Count}", absentBuildsNoAgents.Count());
 
             foreach (var (buildTypeId, buildId, queuedDateTime) in absentBuildsNoAgents)
             {
