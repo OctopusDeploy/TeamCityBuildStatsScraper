@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
@@ -15,6 +17,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
         readonly IMetricFactory metricFactory;
         readonly IConfiguration configuration;
         readonly HashSet<(string buildTypeId, string buildId, string queuedDateTime)> seenBuildsNoAgents = new();
+        readonly HttpClient httpClient = new();
 
         public TeamCityCompatibleAgentsScraper(IMetricFactory metricFactory, IConfiguration configuration, ILogger logger)
             : base(logger.ForContext("Scraper", nameof(TeamCityCompatibleAgentsScraper)))
@@ -25,10 +28,27 @@ namespace TeamCityBuildStatsScraper.Scrapers
 
         protected override TimeSpan DelayBetweenScrapes => TimeSpan.FromSeconds(60);
 
+        async Task<QueuedWaitReasonsResponse> GetQueuedWaitReasons(string teamCityUrl, string teamCityToken, string buildId, bool useSSL)
+        {
+            var protocol = useSSL ? "https" : "http";
+            var url = $"{protocol}://{teamCityUrl}/app/rest/buildQueue/id:{buildId}?fields=queuedWaitReasons(property(name,value))";
+
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Add("Authorization", $"Bearer {teamCityToken}");
+            request.Headers.Add("Accept", "application/json");
+
+            var response = await httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            var content = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<QueuedWaitReasonsResponse>(content, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+        }
+
         protected override async Task Scrape(CancellationToken stoppingToken)
         {
-            await Task.CompletedTask;
-
             var teamCityToken = configuration.GetValue<string>("TEAMCITY_TOKEN");
             var teamCityUrl = configuration.GetValue<string>("BUILD_SERVER_URL");
             var useSSL = configuration.GetValue<bool>("USE_SSL");
@@ -39,9 +59,8 @@ namespace TeamCityBuildStatsScraper.Scrapers
             // only look at builds that have been queued for 30 minutes
             var thirtyMinutesAgo = DateTime.UtcNow.AddMinutes(-1);
             Logger.Debug("DEBUG: Current time: {Now}, Threshold time (30 min ago): {Threshold}", DateTime.UtcNow, thirtyMinutesAgo);
-
             var queuedBuilds = teamCityClient.BuildQueue
-                .GetFields("count,build(id,waitReason,buildTypeId,queuedDate,queuedWaitReasons(property(name,value)),compatibleAgents(count,agent(id)))")
+                .GetFields("count,build(id,waitReason,buildTypeId,queuedDate,compatibleAgents(count,agent(id)))")
                 .All()
                 // exclude builds with no wait reason - these are the ones that are 'starting shortly'
                 .Where(qb => qb.WaitReason != null)
@@ -59,11 +78,22 @@ namespace TeamCityBuildStatsScraper.Scrapers
                 Logger.Debug("DEBUG: Processing build {BuildId} (Type: {BuildTypeId}), Wait Reason: {WaitReason}, Queued: {QueuedDate}",
                     build.Id, build.BuildTypeId, build.WaitReason, build.QueuedDate);
 
-                // Log all properties in queuedWaitReasons if available
-                if (build.QueuedWaitReasons?.Property != null)
+                // Fetch queuedWaitReasons from TeamCity API
+                QueuedWaitReasonsResponse waitReasonsResponse = null;
+                try
                 {
-                    Logger.Debug("DEBUG: Build {BuildId} has {Count} wait reason properties", build.Id, build.QueuedWaitReasons.Property.Count);
-                    foreach (var prop in build.QueuedWaitReasons.Property)
+                    waitReasonsResponse = await GetQueuedWaitReasons(teamCityUrl, teamCityToken, build.Id, useSSL);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warning(ex, "Failed to fetch queuedWaitReasons for build {BuildId}", build.Id);
+                }
+
+                // Log all properties in queuedWaitReasons if available
+                if (waitReasonsResponse?.QueuedWaitReasons?.Property != null)
+                {
+                    Logger.Debug("DEBUG: Build {BuildId} has {Count} wait reason properties", build.Id, waitReasonsResponse.QueuedWaitReasons.Property.Count);
+                    foreach (var prop in waitReasonsResponse.QueuedWaitReasons.Property)
                     {
                         Logger.Debug("DEBUG: Build {BuildId} wait reason property: Name='{Name}', Value='{Value}'",
                             build.Id, prop.Name, prop.Value);
@@ -75,7 +105,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
                 }
 
                 // Check if this build has the "no compatible agents" wait reason
-                var noAgentsWaitReason = build.QueuedWaitReasons?.Property
+                var noAgentsWaitReason = waitReasonsResponse?.QueuedWaitReasons?.Property
                     ?.FirstOrDefault(p => p.Name == "There are no idle compatible agents which can run this build");
 
                 if (noAgentsWaitReason != null && !string.IsNullOrEmpty(noAgentsWaitReason.Value))
@@ -129,5 +159,21 @@ namespace TeamCityBuildStatsScraper.Scrapers
                 Logger.Information("RESOLVED: Build Type {BuildTypeId}, build ID {BuildId} queued at {QueuedDateTime} no longer waiting with no compatible agents", buildTypeId, buildId, queuedDateTime);
             }
         }
+    }
+
+    class QueuedWaitReasonsResponse
+    {
+        public QueuedWaitReasons QueuedWaitReasons { get; set; }
+    }
+
+    class QueuedWaitReasons
+    {
+        public List<WaitReasonProperty> Property { get; set; }
+    }
+
+    class WaitReasonProperty
+    {
+        public string Name { get; set; }
+        public string Value { get; set; }
     }
 }
