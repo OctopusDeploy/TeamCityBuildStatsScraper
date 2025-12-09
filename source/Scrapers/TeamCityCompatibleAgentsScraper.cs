@@ -37,14 +37,14 @@ namespace TeamCityBuildStatsScraper.Scrapers
             teamCityClient.ConnectWithAccessToken(teamCityToken);
 
             var queuedBuilds = teamCityClient.BuildQueue
-                .GetFields("count,build(id,waitReason,buildTypeId,queuedDate,compatibleAgents(count,agent(id)))")
+                .GetFields("count,build(id,waitReason,buildTypeId,queuedDate,queuedWaitReasons(waitReason(name,value)),compatibleAgents(count,agent(id)))")
                 .All()
                 // exclude builds with no wait reason - these are the ones that are 'starting shortly'
                 .Where(qb => qb.WaitReason != null)
                 .ToArray();
 
             // Track builds with no compatible agents that have been queued for over 30 minutes
-            var thirtyMinutesAgo = DateTime.UtcNow.AddMinutes(-30);
+            var thirtyMinutesAgo = DateTime.UtcNow.AddMinutes(-3);
             var buildsNoCompatibleAgents = queuedBuilds
                 .Where(qb => qb.WaitReason == "There are no idle compatible agents which can run this build")
                 .Where(qb => qb.CompatibleAgents?.Agent == null || qb.CompatibleAgents.Agent.Count == 0)
@@ -55,8 +55,19 @@ namespace TeamCityBuildStatsScraper.Scrapers
 
             foreach (var build in buildsNoCompatibleAgents)
             {
+                // Extract the time spent waiting specifically for "no compatible agents"
+                var noAgentsWaitReason = build.QueuedWaitReasons?.Property
+                    ?.FirstOrDefault(p => p.Name == "There are no idle compatible agents which can run this build");
+
+                var waitTimeMinutes = 0.0;
+                if (noAgentsWaitReason != null && !string.IsNullOrEmpty(noAgentsWaitReason.Value))
+                {
+                    waitTimeMinutes = Math.Round(int.Parse(noAgentsWaitReason.Value) / (60.0 * 1000.0));
+                }
+
                 noAgentsGauge.WithLabels(build.BuildTypeId, build.Id, build.QueuedDate.ToString("yyyy-MM-ddTHH:mm:ssZ")).Set(1);
-                Logger.Debug("Build Type {BuildTypeId}, build ID {BuildId} has no compatible agents, queued at {QueuedDateTime}", build.BuildTypeId, build.Id, build.QueuedDate);
+                Logger.Debug("Build Type {BuildTypeId}, build ID {BuildId} has no compatible agents, queued at {QueuedDateTime}, waiting with no agents for {waitTimeMinutes} minutes",
+                    build.BuildTypeId, build.Id, build.QueuedDate, waitTimeMinutes);
             }
 
             var currentBuildsNoAgents = buildsNoCompatibleAgents.Select(b => (b.BuildTypeId, b.Id, b.QueuedDate.ToString("yyyy-MM-ddTHH:mm:ssZ"))).ToArray();
