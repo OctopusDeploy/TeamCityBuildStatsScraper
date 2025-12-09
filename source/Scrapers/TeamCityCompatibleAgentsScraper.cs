@@ -43,10 +43,12 @@ namespace TeamCityBuildStatsScraper.Scrapers
                 .Where(qb => qb.WaitReason != null)
                 .ToArray();
 
-            // Track builds with no compatible agents
+            // Track builds with no compatible agents that have been queued for over 30 minutes
+            var thirtyMinutesAgo = DateTime.UtcNow.AddMinutes(-30);
             var buildsNoCompatibleAgents = queuedBuilds
                 .Where(qb => qb.WaitReason == "There are no idle compatible agents which can run this build")
                 .Where(qb => qb.CompatibleAgents?.Agent == null || qb.CompatibleAgents.Agent.Count == 0)
+                .Where(qb => qb.QueuedDate <= thirtyMinutesAgo)
                 .ToArray();
 
             var noAgentsGauge = metricFactory.CreateGauge("queued_builds_no_compatible_agents", "Queued builds waiting with no compatible agents available", "buildTypeId", "buildId", "queuedDateTime");
