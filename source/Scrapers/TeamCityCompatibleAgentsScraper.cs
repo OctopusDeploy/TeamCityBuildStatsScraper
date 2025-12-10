@@ -57,7 +57,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             teamCityClient.ConnectWithAccessToken(teamCityToken);
 
             // only look at builds that have been queued for 30 minutes
-            var thirtyMinutesAgo = DateTime.UtcNow.AddMinutes(-7);
+            var thirtyMinutesAgo = DateTime.UtcNow.AddMinutes(-30);
             var queuedBuilds = teamCityClient.BuildQueue
                 .GetFields("count,build(id,waitReason,buildTypeId,queuedDate,compatibleAgents(count,agent(id)))")
                 .All()
@@ -95,7 +95,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
                         var waitTimeMinutes = Math.Round(milliseconds / (60.0 * 1000.0));
 
                         // Only track builds that have been waiting for more than 30 minutes
-                        if (waitTimeMinutes > 7)
+                        if (waitTimeMinutes > 30)
                         {
                             buildsNoCompatibleAgents.Add((build.BuildTypeId, build.Id, build.QueuedDate.ToString("yyyy-MM-ddTHH:mm:ssZ")));
 
@@ -110,13 +110,6 @@ namespace TeamCityBuildStatsScraper.Scrapers
             var currentBuildsNoAgents = buildsNoCompatibleAgents.ToArray();
             var absentBuildsNoAgents = seenBuildsNoAgents.Except(currentBuildsNoAgents).ToArray();
 
-            Logger.Debug("DEBUG: currentBuildsNoAgents count: {Count}, values: {@Builds}",
-                currentBuildsNoAgents.Length, currentBuildsNoAgents);
-            Logger.Debug("DEBUG: absentBuildsNoAgents count: {Count}, values: {@Builds}",
-                absentBuildsNoAgents.Length, absentBuildsNoAgents);
-            Logger.Debug("DEBUG: seenBuildsNoAgents count before update: {Count}, values: {@Builds}",
-                seenBuildsNoAgents.Count, seenBuildsNoAgents);
-
             foreach (var (buildTypeId, buildId, queuedDateTime) in absentBuildsNoAgents)
             {
                 noAgentsGauge.RemoveLabelled(buildTypeId, buildId, queuedDateTime);
@@ -125,9 +118,6 @@ namespace TeamCityBuildStatsScraper.Scrapers
             }
 
             seenBuildsNoAgents.UnionWith(currentBuildsNoAgents);
-
-            Logger.Debug("DEBUG: seenBuildsNoAgents count after update: {Count}, values: {@Builds}",
-                seenBuildsNoAgents.Count, seenBuildsNoAgents);
         }
     }
 
