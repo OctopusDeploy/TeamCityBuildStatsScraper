@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -40,8 +41,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             var response = await httpClient.SendAsync(request);
             response.EnsureSuccessStatusCode();
 
-            var content = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<QueuedWaitReasonsResponse>(content, new JsonSerializerOptions
+            return await response.Content.ReadFromJsonAsync<QueuedWaitReasonsResponse>(new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
             });
