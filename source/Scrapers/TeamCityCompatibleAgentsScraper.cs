@@ -110,6 +110,13 @@ namespace TeamCityBuildStatsScraper.Scrapers
             var currentBuildsNoAgents = buildsNoCompatibleAgents.ToArray();
             var absentBuildsNoAgents = seenBuildsNoAgents.Except(currentBuildsNoAgents).ToArray();
 
+            Logger.Debug("DEBUG: currentBuildsNoAgents count: {Count}, values: {@Builds}",
+                currentBuildsNoAgents.Length, currentBuildsNoAgents);
+            Logger.Debug("DEBUG: absentBuildsNoAgents count: {Count}, values: {@Builds}",
+                absentBuildsNoAgents.Length, absentBuildsNoAgents);
+            Logger.Debug("DEBUG: seenBuildsNoAgents count before update: {Count}, values: {@Builds}",
+                seenBuildsNoAgents.Count, seenBuildsNoAgents);
+
             foreach (var (buildTypeId, buildId, queuedDateTime) in absentBuildsNoAgents)
             {
                 noAgentsGauge.RemoveLabelled(buildTypeId, buildId, queuedDateTime);
@@ -118,6 +125,9 @@ namespace TeamCityBuildStatsScraper.Scrapers
             }
 
             seenBuildsNoAgents.UnionWith(currentBuildsNoAgents);
+
+            Logger.Debug("DEBUG: seenBuildsNoAgents count after update: {Count}, values: {@Builds}",
+                seenBuildsNoAgents.Count, seenBuildsNoAgents);
         }
     }
 
