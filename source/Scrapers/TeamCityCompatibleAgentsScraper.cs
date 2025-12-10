@@ -57,7 +57,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
             teamCityClient.ConnectWithAccessToken(teamCityToken);
 
             // only look at builds that have been queued for 30 minutes
-            var thirtyMinutesAgo = DateTime.UtcNow.AddMinutes(-30);
+            var thirtyMinutesAgo = DateTime.UtcNow.AddMinutes(-7);
             var queuedBuilds = teamCityClient.BuildQueue
                 .GetFields("count,build(id,waitReason,buildTypeId,queuedDate,compatibleAgents(count,agent(id)))")
                 .All()
@@ -95,7 +95,7 @@ namespace TeamCityBuildStatsScraper.Scrapers
                         var waitTimeMinutes = Math.Round(milliseconds / (60.0 * 1000.0));
 
                         // Only track builds that have been waiting for more than 30 minutes
-                        if (waitTimeMinutes > 30)
+                        if (waitTimeMinutes > 7)
                         {
                             buildsNoCompatibleAgents.Add((build.BuildTypeId, build.Id, build.QueuedDate.ToString("yyyy-MM-ddTHH:mm:ssZ")));
 
