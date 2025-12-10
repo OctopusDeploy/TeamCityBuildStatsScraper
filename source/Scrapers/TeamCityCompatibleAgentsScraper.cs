@@ -108,14 +108,16 @@ namespace TeamCityBuildStatsScraper.Scrapers
             }
 
             var currentBuildsNoAgents = buildsNoCompatibleAgents.ToArray();
-            seenBuildsNoAgents.UnionWith(currentBuildsNoAgents);
-            var absentBuildsNoAgents = seenBuildsNoAgents.Except(currentBuildsNoAgents);
+            var absentBuildsNoAgents = seenBuildsNoAgents.Except(currentBuildsNoAgents).ToArray();
 
             foreach (var (buildTypeId, buildId, queuedDateTime) in absentBuildsNoAgents)
             {
                 noAgentsGauge.RemoveLabelled(buildTypeId, buildId, queuedDateTime);
                 Logger.Information("RESOLVED: Build Type {BuildTypeId}, build ID {BuildId} queued at {QueuedDateTime} no longer waiting with no compatible agents", buildTypeId, buildId, queuedDateTime);
+                seenBuildsNoAgents.Remove((buildTypeId, buildId, queuedDateTime));
             }
+
+            seenBuildsNoAgents.UnionWith(currentBuildsNoAgents);
         }
     }
 
