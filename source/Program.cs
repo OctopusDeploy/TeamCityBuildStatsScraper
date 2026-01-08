@@ -39,7 +39,7 @@ namespace TeamCityBuildStatsScraper
                 .Enrich.WithProperty("ApplicationSet", "TeamCityBuildStatsScraper")
                 .Enrich.WithProperty("Application", "TeamCityBuildStatsScraper")
                 .Enrich.WithProperty("Version", appVersion)
-                .WriteTo.Console(LogEventLevel.Debug);
+                .WriteTo.Console(LogEventLevel.Information);
             
             if (!string.IsNullOrEmpty(config["SEQ_URL"]))
                 loggerConfiguration.WriteTo.Seq(config["SEQ_URL"], apiKey: config["SEQ_API_KEY"], controlLevelSwitch: levelSwitch);
