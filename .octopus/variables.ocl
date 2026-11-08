@@ -1,0 +1,13 @@
+variable "IsPreRelease" {
+    value "#{Octopus.Release.Number | contains -}" {}
+}
+
+variable "Source.Docker.Image.FullName" {
+    value "#{Source.Docker.Registry.Hostname}/octopusdeploy/#{Octopus.Project.Name}:#{Octopus.Release.Number}" {}
+}
+
+variable "Target.Docker.Image.Name" {
+    value "#{Target.Docker.Registry.Hostname}/octopusdeploy/#{Octopus.Project.Name}" {
+        environment = ["feed-internal"]
+    }
+}
