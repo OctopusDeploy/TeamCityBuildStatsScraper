@@ -19,10 +19,10 @@ Optionally, you can also set
 
 ### Console app
 
-- Install the .NET 5 SDK
+- Install the .NET 10 SDK
 - Clone this repo
-- `dotnet publish -c Release` from the root directory
-- `cd` to `/bin/net5.0/Release/publish` and run `dotnet TeamCityBuildStatsScraper.dll`
+- `dotnet publish -c Release` from the `source` directory
+- `cd` to `bin/Release/net10.0/publish` and run `dotnet TeamCityBuildStatsScraper.dll`
 
 ### Docker container
 
